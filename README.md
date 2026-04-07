@@ -114,9 +114,32 @@ The baseline script is `inference.py` in the project root and uses the OpenAI cl
 Set required environment variables:
 
 - `API_BASE_URL` - LLM API endpoint
-- `MODEL_NAME` - model identifier
+- `MODEL_NAME` - primary model identifier
+- `MODEL_CANDIDATES` - optional comma-separated fallback models (example: `gpt-4.1-mini,gpt-4o-mini`)
+- `MODEL_CANDIDATES_EASY` - optional models for easy tasks
+- `MODEL_CANDIDATES_MEDIUM` - optional models for medium tasks
+- `MODEL_CANDIDATES_HARD` - optional models for hard tasks
 - `OPENAI_API_KEY` - API key (fallback: `HF_TOKEN`)
 - `ENV_BASE_URL` - environment API URL (default `http://localhost:7860`)
+- `ACTION_SCHEMA_MODE` - `strict` or `lenient` (default `strict`)
+
+### Multi-model and schema-based mode
+
+- Multi-model: `inference.py` tries each model in `MODEL_CANDIDATES` in order and falls back to a heuristic action if all fail.
+- Task-aware routing: model lists can be set by difficulty (`MODEL_CANDIDATES_EASY|MEDIUM|HARD`) or per task with `MODEL_CANDIDATES_TASK_<TASK_ID>`.
+- Schema-based: actions are validated against the Pydantic `Action` schema from `models.py` before being sent to `/step`.
+- In `strict` mode, action-specific required fields are enforced (`priority`, `queue`, `reply_text`, `note`, `resolution_code`).
+
+Example:
+
+```bash
+export MODEL_CANDIDATES="gpt-4.1-mini,gpt-4o-mini"
+export MODEL_CANDIDATES_EASY="gpt-4.1-mini"
+export MODEL_CANDIDATES_HARD="gpt-4.1,gpt-4.1-mini"
+export MODEL_CANDIDATES_TASK_TASK_HARD_DATA_BREACH_REPORT="gpt-4.1"
+export ACTION_SCHEMA_MODE="strict"
+python inference.py
+```
 
 Run:
 

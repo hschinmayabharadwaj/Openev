@@ -2,18 +2,50 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from openai import OpenAI
+
+from models import Action
 
 
 ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:7860").rstrip("/")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
+MODEL_CANDIDATES = [
+    model.strip() for model in os.getenv("MODEL_CANDIDATES", "").split(",") if model.strip()
+] or [MODEL_NAME]
+MODEL_CANDIDATES_EASY = [
+    model.strip() for model in os.getenv("MODEL_CANDIDATES_EASY", "").split(",") if model.strip()
+]
+MODEL_CANDIDATES_MEDIUM = [
+    model.strip() for model in os.getenv("MODEL_CANDIDATES_MEDIUM", "").split(",") if model.strip()
+]
+MODEL_CANDIDATES_HARD = [
+    model.strip() for model in os.getenv("MODEL_CANDIDATES_HARD", "").split(",") if model.strip()
+]
+ACTION_SCHEMA_MODE = os.getenv("ACTION_SCHEMA_MODE", "strict").strip().lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 
 ENV_NAME = "supportops-openenv"
+
+ALLOWED_ACTION_TYPES = {
+    "classify_priority",
+    "assign_queue",
+    "draft_reply",
+    "add_internal_note",
+    "resolve_ticket",
+    "noop",
+}
+
+REQUIRED_FIELD_BY_ACTION = {
+    "classify_priority": "priority",
+    "assign_queue": "queue",
+    "draft_reply": "reply_text",
+    "add_internal_note": "note",
+    "resolve_ticket": "resolution_code",
+}
 
 
 def log_start(task_name: str, model: str) -> None:
@@ -45,8 +77,86 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     print(f"[END] success={success_str} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 
-def call_llm_action(client: OpenAI, observation: Dict[str, Any]) -> Dict[str, Any]:
-    """Call the LLM to decide the next action."""
+def fallback_action(observation: Dict[str, Any]) -> Dict[str, Any]:
+    """Safe fallback action if model output is invalid or unavailable."""
+    current_priority = observation.get("current_priority")
+    current_queue = observation.get("current_queue")
+    reply_draft = observation.get("reply_draft")
+
+    if not current_priority:
+        return {"action_type": "classify_priority", "priority": "medium"}
+    if not current_queue:
+        return {"action_type": "assign_queue", "queue": "general"}
+    if not reply_draft:
+        return {
+            "action_type": "draft_reply",
+            "reply_text": (
+                "Thank you for contacting support. We're looking into your issue "
+                "and will provide an update shortly. Please confirm if this helps."
+            ),
+        }
+    return {"action_type": "resolve_ticket", "resolution_code": "awaiting_customer_confirmation"}
+
+
+def normalize_action(raw_action: Any, observation: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize and validate action payload according to schema mode."""
+    if not isinstance(raw_action, dict):
+        return fallback_action(observation)
+
+    action_type = raw_action.get("action_type")
+    if action_type not in ALLOWED_ACTION_TYPES:
+        return {"action_type": "noop"}
+
+    if ACTION_SCHEMA_MODE == "strict":
+        required_field = REQUIRED_FIELD_BY_ACTION.get(action_type)
+        if required_field and not raw_action.get(required_field):
+            return fallback_action(observation)
+
+    try:
+        validated = Action.model_validate(raw_action)
+        return validated.model_dump(exclude_none=True)
+    except Exception:
+        return fallback_action(observation)
+
+
+def extract_json_object(text: str) -> Dict[str, Any]:
+    """Extract a JSON object from model text, including markdown code blocks."""
+    content = (text or "{}").strip()
+    if content.startswith("```"):
+        lines = content.split("\n")
+        if len(lines) >= 3 and lines[-1].strip().startswith("```"):
+            content = "\n".join(lines[1:-1])
+        else:
+            content = "\n".join(lines[1:])
+
+    return json.loads(content)
+
+
+def models_for_task(task_id: str, difficulty: Optional[str]) -> List[str]:
+    """Select model candidates by task difficulty with fallback to global list."""
+    # Optional per-task override: MODEL_CANDIDATES_TASK_<TASK_ID>
+    task_env_key = f"MODEL_CANDIDATES_TASK_{task_id.upper()}"
+    task_models = [
+        model.strip() for model in os.getenv(task_env_key, "").split(",") if model.strip()
+    ]
+    if task_models:
+        return task_models
+
+    difficulty_key = (difficulty or "").strip().lower()
+    if difficulty_key == "easy" and MODEL_CANDIDATES_EASY:
+        return MODEL_CANDIDATES_EASY
+    if difficulty_key == "medium" and MODEL_CANDIDATES_MEDIUM:
+        return MODEL_CANDIDATES_MEDIUM
+    if difficulty_key == "hard" and MODEL_CANDIDATES_HARD:
+        return MODEL_CANDIDATES_HARD
+
+    return MODEL_CANDIDATES
+
+
+def call_llm_action(
+    client: OpenAI, observation: Dict[str, Any], model_candidates: List[str]
+) -> Tuple[Dict[str, Any], str]:
+    """Call models in order and return the first valid action and model used."""
     system_prompt = """You are an expert customer support triage agent. Your job is to:
 1. Classify ticket priority (low/medium/high/urgent)
 2. Assign to correct queue (billing/technical/account/trust_and_safety/general)
@@ -74,11 +184,10 @@ Common resolution codes: awaiting_customer_confirmation, resolved_with_documenta
 billing_investigation_opened, engineering_investigation, incident_escalated, security_incident_opened"""
 
     # Determine what actions have been taken
-    history = observation.get("action_history", [])
     current_priority = observation.get("current_priority")
     current_queue = observation.get("current_queue")
     reply_draft = observation.get("reply_draft")
-    
+
     status = []
     if current_priority:
         status.append(f"Priority set: {current_priority}")
@@ -86,9 +195,9 @@ billing_investigation_opened, engineering_investigation, incident_escalated, sec
         status.append(f"Queue assigned: {current_queue}")
     if reply_draft:
         status.append("Reply drafted")
-    
+
     status_str = ", ".join(status) if status else "No actions taken yet"
-    
+
     prompt = f"""{action_schema}
 
 Current ticket:
@@ -104,54 +213,38 @@ Current status: {status_str}
 
 Decide the single best next action to maximize progress. If priority, queue, and reply are set, resolve the ticket."""
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        temperature=0,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    content = response.choices[0].message.content or "{}"
+    for model in model_candidates:
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            content = response.choices[0].message.content or "{}"
+            parsed = extract_json_object(content)
+            return normalize_action(parsed, observation), model
+        except Exception:
+            continue
 
-    # Clean up response - extract JSON if wrapped in markdown
-    content = content.strip()
-    if content.startswith("```"):
-        lines = content.split("\n")
-        content = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
-    
-    try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError:
-        # Fallback action based on what's missing
-        if not current_priority:
-            parsed = {"action_type": "classify_priority", "priority": "medium"}
-        elif not current_queue:
-            parsed = {"action_type": "assign_queue", "queue": "general"}
-        elif not reply_draft:
-            parsed = {
-                "action_type": "draft_reply",
-                "reply_text": (
-                    "Thank you for contacting support. We're looking into your issue "
-                    "and will provide an update shortly. Please confirm if this helps."
-                ),
-            }
-        else:
-            parsed = {"action_type": "resolve_ticket", "resolution_code": "awaiting_customer_confirmation"}
-
-    if "action_type" not in parsed:
-        parsed = {"action_type": "noop"}
-    return parsed
+    return fallback_action(observation), "fallback-heuristic"
 
 
 def run_task(
-    http_client: httpx.Client, llm_client: OpenAI, task_id: str, max_steps: int = 8
+    http_client: httpx.Client,
+    llm_client: OpenAI,
+    task_id: str,
+    difficulty: Optional[str],
+    max_steps: int = 8,
 ) -> tuple[bool, int, float, List[float]]:
     """
     Run a single task episode.
     Returns (success, step_count, final_score, rewards_list).
     """
-    log_start(task_id, MODEL_NAME)
+    model_candidates = models_for_task(task_id, difficulty)
+    log_start(task_id, model_candidates[0])
 
     rewards: List[float] = []
     step_idx = 0
@@ -168,7 +261,7 @@ def run_task(
             step_idx = idx
             error = None
 
-            action = call_llm_action(llm_client, observation)
+            action, used_model = call_llm_action(llm_client, observation, model_candidates)
             step_resp = http_client.post(f"{ENV_BASE_URL}/step", json=action)
             step_resp.raise_for_status()
             payload = step_resp.json()
@@ -181,6 +274,8 @@ def run_task(
             reason = payload.get("reward", {}).get("reason", "")
             if "penalty" in reason.lower() or "missing" in reason.lower() or "empty" in reason.lower():
                 error = reason
+            if used_model == "fallback-heuristic":
+                error = f"{error};model_fallback" if error else "model_fallback"
 
             rewards.append(reward)
             log_step(idx, action, reward, done, error)
@@ -216,7 +311,8 @@ def main() -> None:
 
         for task in tasks:
             task_id = task["task_id"]
-            run_task(http_client, llm_client, task_id)
+            difficulty = task.get("difficulty")
+            run_task(http_client, llm_client, task_id, difficulty)
 
     finally:
         http_client.close()
