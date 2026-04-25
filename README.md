@@ -10,7 +10,40 @@ tags:
 
 # Neon Syndicate OpenEnv
 
-A cinematic OG-style strategy game environment for training LLM agents on coalition politics, bargaining, and long-horizon execution.
+> **Mission Briefing — NS-1101 / Neon Meridian / 02:47 local**
+> *Most LLM benchmarks reward one good answer. Neon Syndicate rewards twelve good decisions in a row.*
+> A cinematic multi-agent strategy environment for training LLMs on coalition politics, bargaining, and long-horizon execution under partial observability.
+
+[![HF Space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/hsbharadwaj/ev)
+[![Runtime API](https://img.shields.io/badge/runtime-live-brightgreen)](https://hsbharadwaj-ev.hf.space/health)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb)
+[![OpenEnv](https://img.shields.io/badge/OpenEnv-compatible-blue)](openenv.yaml)
+
+## For Judges — Start Here
+
+If you have **3 minutes**, read this first: **[`docs/judge_flow.md`](docs/judge_flow.md)** — every deliverable is graded inside that single document.
+
+Other entry points:
+
+| You want… | Open this |
+|---|---|
+| The story / why-it-matters | [`docs/mini_blog.md`](docs/mini_blog.md) |
+| A slide-by-slide pitch deck | [`docs/pitch_flow.md`](docs/pitch_flow.md) |
+| A live `curl`-driven demo, scene by scene | [`docs/demo_storyboard.md`](docs/demo_storyboard.md) |
+| A 90-second video voice-over | [`docs/video_script_90s.md`](docs/video_script_90s.md) |
+| The reward / loss curves | [`artifacts/reward_curves.png`](artifacts/reward_curves.png) · [`artifacts/loss_curve.png`](artifacts/loss_curve.png) |
+
+One-line health check:
+
+```bash
+curl https://hsbharadwaj-ev.hf.space/health
+```
+
+One-line full pipeline (server → train → evaluate → plot):
+
+```bash
+./scripts/run_full_pipeline.sh
+```
 
 ## Theme Fit (Best Choice)
 
@@ -326,8 +359,13 @@ Attach below the table:
 
 ## Storytelling Assets
 
-- Mini-blog draft: [docs/mini_blog.md](docs/mini_blog.md)
-- 90-second demo script: [docs/video_script_90s.md](docs/video_script_90s.md)
+The judging package is cross-linked and shares a single arc — pick the format that matches how you're evaluating:
+
+- **Judge flow (3-minute walkthrough):** [docs/judge_flow.md](docs/judge_flow.md)
+- **Mini-blog (story-driven narrative):** [docs/mini_blog.md](docs/mini_blog.md)
+- **Pitch flow (slide-by-slide deck):** [docs/pitch_flow.md](docs/pitch_flow.md)
+- **Live demo storyboard (curl scene-by-scene):** [docs/demo_storyboard.md](docs/demo_storyboard.md)
+- **90-second video script:** [docs/video_script_90s.md](docs/video_script_90s.md)
 
 ## What Makes This Cool
 

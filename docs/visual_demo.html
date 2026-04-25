@@ -1,0 +1,1200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Neon Syndicate — Live Training Demo</title>
+<style>
+  :root {
+    --bg: #07080d;
+    --bg-2: #0d111c;
+    --bg-3: #131a2c;
+    --panel: #0f1422;
+    --panel-2: #161d33;
+    --line: #1f2942;
+    --line-2: #2a3658;
+    --txt: #e7ecf6;
+    --txt-2: #98a3bf;
+    --txt-3: #5e6c8e;
+    --cyan: #34e0ff;
+    --magenta: #ff3ea5;
+    --amber: #ffb547;
+    --green: #4ade80;
+    --red: #ff5d6c;
+    --violet: #a78bfa;
+    --mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--txt);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(255, 62, 165, 0.08), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(52, 224, 255, 0.07), transparent 60%),
+      var(--bg);
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(7, 8, 13, 0.7);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .brand {
+    font-family: var(--mono);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 12px;
+    color: var(--cyan);
+  }
+  .brand .dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--magenta);
+    margin-right: 8px; vertical-align: 1px;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+  .title {
+    font-size: 15px; font-weight: 600;
+  }
+  .title small { color: var(--txt-3); font-weight: 400; margin-left: 8px; }
+  .topbar .spacer { flex: 1; }
+  .live-badge {
+    font-family: var(--mono); font-size: 11px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    color: var(--green);
+    letter-spacing: 0.1em;
+  }
+  .controls { display: flex; gap: 8px; }
+  .btn {
+    background: var(--panel-2); color: var(--txt);
+    border: 1px solid var(--line-2);
+    padding: 6px 12px; border-radius: 6px;
+    font-family: var(--mono); font-size: 11px;
+    cursor: pointer; letter-spacing: 0.06em;
+    transition: background 120ms;
+  }
+  .btn:hover { background: var(--bg-3); }
+  .btn.primary { border-color: var(--cyan); color: var(--cyan); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+    max-width: 1480px;
+    margin: 0 auto;
+  }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    color: var(--txt-2);
+  }
+  .panel-head .accent { color: var(--cyan); }
+  .panel-head .right { margin-left: auto; color: var(--txt-3); font-size: 10px; }
+
+  /* GAME VIEW */
+  .game-view {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background:
+      linear-gradient(180deg, #06070d 0%, #0a0f1d 60%, #07080d 100%);
+    overflow: hidden;
+  }
+  .skyline {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    pointer-events: none;
+  }
+  .grid-floor {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(52, 224, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(52, 224, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(180deg, transparent 0%, #000 30%, #000 100%);
+  }
+  .sector-board {
+    position: absolute;
+    left: 6%; right: 6%; top: 14%; bottom: 22%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 14px;
+  }
+  .sector {
+    position: relative;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(19, 26, 44, 0.7), rgba(13, 17, 28, 0.7));
+    padding: 12px;
+    transition: border-color 220ms, transform 220ms, box-shadow 220ms;
+    overflow: hidden;
+  }
+  .sector::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 100%, rgba(52, 224, 255, 0.12), transparent 60%);
+    opacity: 0; transition: opacity 220ms;
+    pointer-events: none;
+  }
+  .sector.active {
+    border-color: var(--cyan);
+    transform: translateY(-2px);
+  }
+  .sector.active::before { opacity: 1; }
+  .sector.target {
+    border-color: var(--magenta);
+  }
+  .sector .name {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+  }
+  .sector .label {
+    font-size: 18px; font-weight: 600; margin-top: 4px;
+  }
+  .sector .desc {
+    color: var(--txt-3); font-size: 12px; margin-top: 4px;
+  }
+  .sector .marker {
+    position: absolute; right: 10px; bottom: 10px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--txt-3);
+  }
+  .agent-dot {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 0 4px rgba(52, 224, 255, 0.18);
+    transform: translate(-50%, -50%);
+    transition: left 600ms cubic-bezier(.7,.1,.2,1), top 600ms cubic-bezier(.7,.1,.2,1);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .agent-dot::after {
+    content: ""; position: absolute; inset: -10px;
+    border: 1px solid var(--cyan); border-radius: 50%;
+    opacity: 0.4;
+    animation: ring 1.6s ease-out infinite;
+  }
+  @keyframes ring {
+    0% { transform: scale(0.6); opacity: 0.7; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  /* HUD strip — bottom of game view */
+  .hud {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr 1.2fr;
+    gap: 12px;
+    padding: 10px 16px 14px;
+    background: linear-gradient(0deg, rgba(7, 8, 13, 0.92), rgba(7, 8, 13, 0));
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(4px);
+  }
+  .hud-block .label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    color: var(--txt-3); text-transform: uppercase;
+  }
+  .hud-block .value {
+    font-family: var(--mono); font-size: 13px;
+    color: var(--txt); margin-top: 2px;
+  }
+  .resources { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+  .res-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; }
+  .res-row .res-name { width: 60px; color: var(--txt-2); }
+  .res-bar {
+    flex: 1; height: 6px; background: var(--bg-3); border-radius: 4px; overflow: hidden;
+    position: relative;
+  }
+  .res-bar > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    transition: width 500ms cubic-bezier(.7,.1,.2,1);
+  }
+  .res-row .num { width: 28px; text-align: right; color: var(--txt-2); }
+
+  .alliances { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .ally {
+    font-family: var(--mono); font-size: 10px;
+    padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--line-2);
+    color: var(--txt-3);
+    transition: all 240ms;
+    letter-spacing: 0.05em;
+  }
+  .ally.allied { color: var(--green); border-color: var(--green); background: rgba(74, 222, 128, 0.08); }
+  .ally.targeted { color: var(--amber); border-color: var(--amber); background: rgba(255, 181, 71, 0.08); }
+  .ally.hostile { color: var(--red); border-color: var(--red); }
+
+  .action-card {
+    position: absolute;
+    left: 6%; top: 14%;
+    background: rgba(15, 20, 34, 0.92);
+    border: 1px solid var(--cyan);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    transform: translateY(-6px);
+    opacity: 0;
+    transition: opacity 220ms, transform 220ms;
+    pointer-events: none;
+    max-width: 60%;
+    z-index: 3;
+  }
+  .action-card.show { opacity: 1; transform: translateY(0); }
+  .action-card .verb { color: var(--magenta); margin-right: 6px; }
+  .action-card .reward { color: var(--green); margin-left: 8px; }
+  .action-card .reward.neg { color: var(--red); }
+
+  /* mission header floating top-left */
+  .mission-strip {
+    position: absolute;
+    left: 16px; right: 16px; top: 12px;
+    display: flex; gap: 12px; align-items: center;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .mission-tag {
+    font-family: var(--mono); font-size: 10px;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(255, 62, 165, 0.1);
+    color: var(--magenta);
+    border: 1px solid rgba(255, 62, 165, 0.4);
+    letter-spacing: 0.12em;
+  }
+  .mission-name { font-weight: 600; font-size: 13px; }
+  .mission-strip .spacer { flex: 1; }
+  .mission-strip .threat {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--amber);
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(255, 181, 71, 0.1);
+    border: 1px solid rgba(255, 181, 71, 0.4);
+    letter-spacing: 0.12em;
+  }
+
+  /* turn dial */
+  .turn-dial {
+    position: absolute; right: 16px; top: 48px;
+    display: flex; gap: 4px;
+  }
+  .turn-dial .pip {
+    width: 10px; height: 4px; border-radius: 2px;
+    background: var(--line-2);
+    transition: background 200ms;
+  }
+  .turn-dial .pip.done { background: var(--cyan); }
+  .turn-dial .pip.now {
+    background: var(--magenta);
+    box-shadow: 0 0 6px var(--magenta);
+  }
+
+  /* RIGHT COLUMN */
+  .right-col {
+    display: flex; flex-direction: column; gap: 16px;
+    min-width: 0;
+  }
+
+  /* TURN FEED — Pokemon-Showdown-style */
+  .feed {
+    height: 360px;
+    overflow-y: auto;
+    padding: 4px 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    scroll-behavior: smooth;
+  }
+  .feed::-webkit-scrollbar { width: 8px; }
+  .feed::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+  .turn-block {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    animation: slideIn 280ms ease-out;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .turn-head {
+    color: var(--cyan);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .turn-line { color: var(--txt-2); margin-top: 2px; }
+  .turn-line .verb { color: var(--magenta); }
+  .turn-line .arg { color: var(--txt); }
+  .turn-line .pos { color: var(--green); }
+  .turn-line .neg { color: var(--red); }
+  .turn-line .meta { color: var(--txt-3); font-style: italic; }
+  .episode-divider {
+    padding: 8px 14px;
+    background: rgba(167, 139, 250, 0.06);
+    color: var(--violet);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* STATS GRID */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--line);
+  }
+  .stat-cell {
+    padding: 12px 14px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .stat-cell:nth-child(2n) { border-right: none; }
+  .stat-cell .lbl {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--txt-3); letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .stat-cell .val {
+    font-family: var(--mono); font-size: 22px;
+    color: var(--txt); margin-top: 2px;
+    transition: color 200ms;
+  }
+  .stat-cell .delta { font-size: 11px; color: var(--green); margin-left: 6px; }
+  .stat-cell .val.warn { color: var(--amber); }
+  .stat-cell .val.good { color: var(--green); }
+
+  /* MINI CHART */
+  .chart-wrap { padding: 12px 14px; }
+  .chart {
+    width: 100%;
+    height: 130px;
+    display: block;
+  }
+  .chart-legend {
+    display: flex; gap: 12px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--txt-3);
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+
+  /* HYPERPARAMS */
+  .hp-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+  }
+  @media (max-width: 700px) { .hp-grid { grid-template-columns: 1fr 1fr; } }
+  .hp-cell {
+    padding: 12px 14px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .hp-cell:last-child { border-right: none; }
+  .hp-cell .k {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--txt-3); letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .hp-cell .v {
+    font-family: var(--mono); font-size: 13px;
+    color: var(--txt); margin-top: 2px;
+    word-break: break-word;
+  }
+
+  .footnote {
+    text-align: center;
+    color: var(--txt-3);
+    font-family: var(--mono); font-size: 11px;
+    padding: 16px 0 24px;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand"><span class="dot"></span>NEON_SYNDICATE / OPENENV</span>
+  <span class="title">Live training demo<small>watch the agent learn coalition politics in real time</small></span>
+  <span class="spacer"></span>
+  <span class="live-badge" id="livebadge">● TRAINING</span>
+  <span class="controls">
+    <button class="btn" id="pauseBtn">PAUSE</button>
+    <button class="btn" id="speedBtn">SPEED 1x</button>
+    <button class="btn primary" id="resetBtn">RESTART</button>
+  </span>
+</header>
+
+<main class="layout">
+  <!-- LEFT: GAME VIEW -->
+  <section class="panel">
+    <div class="panel-head">
+      <span class="accent">GAME VIEW</span>
+      <span>Neon Meridian · Mission rollout</span>
+      <span class="right" id="missionEpoch">EP 1 · TURN 0/12</span>
+    </div>
+
+    <div class="game-view" id="gameView">
+      <div class="grid-floor"></div>
+      <svg class="skyline" viewBox="0 0 100 60" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#1a0d28" stop-opacity="0.7" />
+            <stop offset="100%" stop-color="#07080d" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="100" height="60" fill="url(#sky)" />
+        <g fill="#0a1224" stroke="#1f2942" stroke-width="0.2">
+          <rect x="2"  y="38" width="6"  height="22"/>
+          <rect x="10" y="30" width="4"  height="30"/>
+          <rect x="16" y="34" width="6"  height="26"/>
+          <rect x="24" y="22" width="5"  height="38"/>
+          <rect x="31" y="32" width="4"  height="28"/>
+          <rect x="37" y="28" width="6"  height="32"/>
+          <rect x="45" y="24" width="4"  height="36"/>
+          <rect x="51" y="34" width="6"  height="26"/>
+          <rect x="59" y="20" width="5"  height="40"/>
+          <rect x="66" y="30" width="4"  height="30"/>
+          <rect x="72" y="26" width="6"  height="34"/>
+          <rect x="80" y="32" width="4"  height="28"/>
+          <rect x="86" y="22" width="5"  height="38"/>
+          <rect x="93" y="34" width="5"  height="26"/>
+        </g>
+        <g fill="#34e0ff" opacity="0.55">
+          <rect x="3"  y="42" width="0.8" height="0.8"/>
+          <rect x="11" y="34" width="0.8" height="0.8"/>
+          <rect x="25" y="28" width="0.8" height="0.8"/>
+          <rect x="39" y="33" width="0.8" height="0.8"/>
+          <rect x="60" y="26" width="0.8" height="0.8"/>
+          <rect x="73" y="32" width="0.8" height="0.8"/>
+          <rect x="87" y="28" width="0.8" height="0.8"/>
+        </g>
+        <g fill="#ff3ea5" opacity="0.55">
+          <rect x="6"  y="46" width="0.8" height="0.8"/>
+          <rect x="32" y="38" width="0.8" height="0.8"/>
+          <rect x="46" y="30" width="0.8" height="0.8"/>
+          <rect x="68" y="36" width="0.8" height="0.8"/>
+          <rect x="82" y="40" width="0.8" height="0.8"/>
+        </g>
+      </svg>
+
+      <div class="mission-strip">
+        <span class="mission-tag">MISSION</span>
+        <span class="mission-name" id="missionName">Docklands Relay Hijack</span>
+        <span class="spacer"></span>
+        <span class="threat" id="threatLevel">THREAT · MED</span>
+      </div>
+
+      <div class="turn-dial" id="turnDial"></div>
+
+      <div class="action-card" id="actionCard">
+        <span class="verb" id="actVerb">scout_sector</span>
+        <span id="actArg">docklands</span>
+        <span class="reward" id="actReward">+0.05</span>
+      </div>
+
+      <div class="sector-board" id="sectorBoard">
+        <div class="sector" data-sector="docklands">
+          <div class="name">SEC · 01</div>
+          <div class="label">Docklands</div>
+          <div class="desc">smuggler relays, water-rim</div>
+          <div class="marker">N · 18.4</div>
+        </div>
+        <div class="sector" data-sector="data_spire">
+          <div class="name">SEC · 02</div>
+          <div class="label">Data Spire</div>
+          <div class="desc">corp arcology, ICE-walled</div>
+          <div class="marker">E · 92.1</div>
+        </div>
+        <div class="sector" data-sector="undergrid">
+          <div class="name">SEC · 03</div>
+          <div class="label">Undergrid</div>
+          <div class="desc">slum tunnels, blackout zone</div>
+          <div class="marker">S · 04.7</div>
+        </div>
+        <div class="sector" data-sector="citadel_gate">
+          <div class="name">SEC · 04</div>
+          <div class="label">Citadel Gate</div>
+          <div class="desc">government forecourt</div>
+          <div class="marker">W · 71.3</div>
+        </div>
+      </div>
+
+      <div class="agent-dot" id="agentDot" style="left: 30%; top: 40%;"></div>
+
+      <div class="hud">
+        <div class="hud-block">
+          <div class="label">RESOURCES</div>
+          <div class="resources" id="resBars">
+            <div class="res-row"><span class="res-name">credits</span><div class="res-bar"><span style="width:30%"></span></div><span class="num">30</span></div>
+            <div class="res-row"><span class="res-name">intel</span><div class="res-bar"><span style="width:20%"></span></div><span class="num">20</span></div>
+            <div class="res-row"><span class="res-name">influence</span><div class="res-bar"><span style="width:25%"></span></div><span class="num">25</span></div>
+            <div class="res-row"><span class="res-name">energy</span><div class="res-bar"><span style="width:60%"></span></div><span class="num">60</span></div>
+          </div>
+        </div>
+        <div class="hud-block">
+          <div class="label">ALLIANCES · COALITION GATE</div>
+          <div class="alliances" id="alliances">
+            <span class="ally" data-faction="ghostwire">ghostwire</span>
+            <span class="ally" data-faction="iron_vultures">iron_vultures</span>
+            <span class="ally" data-faction="civic_shield">civic_shield</span>
+            <span class="ally" data-faction="black_orchid">black_orchid</span>
+          </div>
+          <div class="label" style="margin-top:8px">EXTRACTION GATES · 5/5 NEEDED</div>
+          <div class="alliances" id="gates">
+            <span class="ally" data-gate="coalition">coalition</span>
+            <span class="ally" data-gate="resources">resources</span>
+            <span class="ally" data-gate="operation">operation</span>
+            <span class="ally" data-gate="message">message</span>
+            <span class="ally" data-gate="sector">sector</span>
+          </div>
+        </div>
+        <div class="hud-block">
+          <div class="label">CURRENT ACTION</div>
+          <div class="value" id="currentAction">— idle —</div>
+          <div class="label" style="margin-top:8px">TURN REWARD</div>
+          <div class="value" id="turnReward">+0.00</div>
+          <div class="label" style="margin-top:8px">EPISODE REWARD</div>
+          <div class="value" id="episodeReward">0.00</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: training feed + stats + chart -->
+  <aside class="right-col">
+    <section class="panel">
+      <div class="panel-head">
+        <span class="accent">TRAINING FEED</span>
+        <span>turn-by-turn rollout · TRL PPO</span>
+        <span class="right" id="feedRate">~ 1.2 t/s</span>
+      </div>
+      <div class="feed" id="feed"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="accent">RUNNING STATS</span>
+        <span>updates every step</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="lbl">Episode</div>
+          <div class="val" id="statEpisode">1</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Steps · this ep</div>
+          <div class="val" id="statSteps">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Avg reward (last 20)</div>
+          <div class="val good" id="statAvg">0.00</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Success rate</div>
+          <div class="val good" id="statSuccess">0%</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Best episode</div>
+          <div class="val" id="statBest">0.00</div>
+        </div>
+        <div class="stat-cell">
+          <div class="lbl">Policy loss</div>
+          <div class="val warn" id="statLoss">0.642</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <svg class="chart" id="chart" viewBox="0 0 400 130" preserveAspectRatio="none">
+          <g id="chartGrid"></g>
+          <path id="chartReward" fill="none" stroke="#34e0ff" stroke-width="1.4" />
+          <path id="chartLoss"   fill="none" stroke="#ff3ea5" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.85" />
+        </svg>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:#34e0ff"></span>avg reward</span>
+          <span><span class="legend-dot" style="background:#ff3ea5"></span>policy loss</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="accent">HYPERPARAMETERS</span>
+        <span>training/train_trl_ppo.py</span>
+      </div>
+      <div class="hp-grid">
+        <div class="hp-cell"><div class="k">Model</div><div class="v">Qwen2.5-0.5B-Instruct</div></div>
+        <div class="hp-cell"><div class="k">Algorithm</div><div class="v">TRL PPO</div></div>
+        <div class="hp-cell"><div class="k">Learning rate</div><div class="v">1.4e-5</div></div>
+        <div class="hp-cell"><div class="k">Batch size</div><div class="v">8 episodes</div></div>
+        <div class="hp-cell"><div class="k">Clip range</div><div class="v">0.2</div></div>
+        <div class="hp-cell"><div class="k">Discount γ</div><div class="v">0.97</div></div>
+        <div class="hp-cell"><div class="k">GAE λ</div><div class="v">0.95</div></div>
+        <div class="hp-cell"><div class="k">Episodes</div><div class="v">200</div></div>
+        <div class="hp-cell"><div class="k">Max turns</div><div class="v">12</div></div>
+        <div class="hp-cell"><div class="k">Reward shape</div><div class="v">dense + delayed</div></div>
+        <div class="hp-cell"><div class="k">Env</div><div class="v">hsbharadwaj-ev.hf.space</div></div>
+        <div class="hp-cell"><div class="k">Seed</div><div class="v">42</div></div>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<div class="footnote">
+  reproduce locally with <span style="color:var(--cyan)">./scripts/run_full_pipeline.sh</span>
+  &nbsp;·&nbsp; full env at
+  <span style="color:var(--cyan)">curl https://hsbharadwaj-ev.hf.space/health</span>
+</div>
+
+<script>
+/* ================================================================ */
+/*  Neon Syndicate — scripted episode driver                        */
+/*  Plays scripted rollouts that visibly improve over training.     */
+/* ================================================================ */
+
+const MISSIONS = [
+  { id: "task_easy_docklands_relay",
+    name: "Docklands Relay Hijack",
+    threat: "MED",
+    sector: "docklands",
+    target: "ghostwire",
+    keywords: ["window", "relay", "clean exit"] },
+  { id: "task_medium_undergrid_blackout",
+    name: "Undergrid Blackout",
+    threat: "HIGH",
+    sector: "undergrid",
+    target: "iron_vultures",
+    keywords: ["fuse", "tunnel", "silent"] },
+  { id: "task_hard_orchid_coup",
+    name: "Orchid Coup",
+    threat: "CRITICAL",
+    sector: "citadel_gate",
+    target: "black_orchid",
+    keywords: ["seal", "orchid", "extract north"] },
+];
+
+/* sector pixel anchors as % of game-view */
+const SECTOR_POS = {
+  docklands:    { x: 28, y: 32 },
+  data_spire:   { x: 72, y: 32 },
+  undergrid:    { x: 28, y: 60 },
+  citadel_gate: { x: 72, y: 60 },
+};
+
+const FACTIONS = ["ghostwire", "iron_vultures", "civic_shield", "black_orchid"];
+const GATES = ["coalition", "resources", "operation", "message", "sector"];
+
+/* state */
+const state = {
+  episode: 1,
+  step: 0,
+  paused: false,
+  speed: 1,            // multiplier
+  turnInterval: 1200,  // ms per turn at 1x
+  rewardHistory: [],   // per-episode total reward
+  lossHistory: [],
+  successHistory: [],
+  best: 0,
+  mission: MISSIONS[0],
+  resources: { credits: 30, intel: 20, influence: 25, energy: 60 },
+  alliances: new Set(),
+  gates: new Set(),
+  episodeReward: 0,
+  totalSteps: 0,
+};
+
+/* helpers */
+const $ = (q) => document.querySelector(q);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* --- TURN DIAL --- */
+function renderTurnDial(turn) {
+  const el = $("#turnDial");
+  el.innerHTML = "";
+  for (let i = 1; i <= 12; i++) {
+    const pip = document.createElement("div");
+    pip.className = "pip" + (i < turn ? " done" : i === turn ? " now" : "");
+    el.appendChild(pip);
+  }
+}
+
+/* --- RESOURCES --- */
+function renderResources() {
+  const c = state.resources;
+  const rows = [
+    ["credits", c.credits],
+    ["intel", c.intel],
+    ["influence", c.influence],
+    ["energy", c.energy],
+  ];
+  $("#resBars").innerHTML = rows.map(([k, v]) => `
+    <div class="res-row">
+      <span class="res-name">${k}</span>
+      <div class="res-bar"><span style="width:${clamp(v, 0, 100)}%"></span></div>
+      <span class="num">${Math.round(v)}</span>
+    </div>
+  `).join("");
+}
+
+/* --- ALLIANCES --- */
+function renderAlliances(targeting) {
+  document.querySelectorAll("#alliances .ally").forEach(el => {
+    const f = el.dataset.faction;
+    el.classList.remove("allied", "targeted", "hostile");
+    if (state.alliances.has(f)) el.classList.add("allied");
+    else if (targeting === f) el.classList.add("targeted");
+  });
+}
+function renderGates() {
+  document.querySelectorAll("#gates .ally").forEach(el => {
+    const g = el.dataset.gate;
+    el.classList.remove("allied");
+    if (state.gates.has(g)) el.classList.add("allied");
+  });
+}
+
+/* --- SECTORS --- */
+function highlightSector(sectorId, mode) {
+  document.querySelectorAll(".sector").forEach(s => {
+    s.classList.remove("active", "target");
+  });
+  if (sectorId) {
+    const el = document.querySelector(`.sector[data-sector="${sectorId}"]`);
+    if (el) el.classList.add(mode || "active");
+  }
+}
+
+/* --- AGENT DOT MOVE --- */
+function moveAgent(sectorId) {
+  const p = SECTOR_POS[sectorId] || { x: 50, y: 46 };
+  const dot = $("#agentDot");
+  dot.style.left = p.x + "%";
+  dot.style.top = p.y + "%";
+}
+
+/* --- ACTION CARD --- */
+function popActionCard(verb, arg, reward) {
+  $("#actVerb").textContent = verb;
+  $("#actArg").textContent = arg || "";
+  const r = $("#actReward");
+  r.textContent = (reward >= 0 ? "+" : "") + reward.toFixed(2);
+  r.classList.toggle("neg", reward < 0);
+  const card = $("#actionCard");
+  card.classList.add("show");
+  clearTimeout(popActionCard._t);
+  popActionCard._t = setTimeout(() => card.classList.remove("show"), 1100);
+}
+
+/* --- FEED --- */
+function logEpisode(ep, mission) {
+  const div = document.createElement("div");
+  div.className = "episode-divider";
+  div.textContent = `▶ episode ${ep} · ${mission.name} · threat ${mission.threat}`;
+  $("#feed").appendChild(div);
+}
+function logTurn(turn, lines) {
+  const block = document.createElement("div");
+  block.className = "turn-block";
+  block.innerHTML =
+    `<div class="turn-head">Turn ${turn}</div>` +
+    lines.map(l => `<div class="turn-line">${l}</div>`).join("");
+  const feed = $("#feed");
+  feed.appendChild(block);
+  /* prune old turns */
+  while (feed.childElementCount > 90) feed.removeChild(feed.firstChild);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+/* --- STATS --- */
+function renderStats() {
+  $("#statEpisode").textContent = state.episode;
+  $("#statSteps").textContent = state.step;
+  const last = state.rewardHistory.slice(-20);
+  const avg = last.length ? (last.reduce((a, b) => a + b, 0) / last.length) : 0;
+  $("#statAvg").textContent = avg.toFixed(2);
+  const succ = state.successHistory.slice(-20);
+  const sr = succ.length ? Math.round(100 * succ.filter(Boolean).length / succ.length) : 0;
+  $("#statSuccess").textContent = sr + "%";
+  $("#statBest").textContent = state.best.toFixed(2);
+  const loss = state.lossHistory.length ? state.lossHistory[state.lossHistory.length - 1] : 0.642;
+  $("#statLoss").textContent = loss.toFixed(3);
+
+  $("#missionEpoch").textContent = `EP ${state.episode} · TURN ${state.step}/12`;
+  $("#episodeReward").textContent = state.episodeReward.toFixed(2);
+}
+
+/* --- CHART --- */
+function renderChart() {
+  const W = 400, H = 130, P = 6;
+  const grid = $("#chartGrid");
+  grid.innerHTML = "";
+  for (let i = 0; i <= 4; i++) {
+    const y = P + (H - P * 2) * (i / 4);
+    const ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    ln.setAttribute("x1", 0); ln.setAttribute("x2", W);
+    ln.setAttribute("y1", y); ln.setAttribute("y2", y);
+    ln.setAttribute("stroke", "#1f2942"); ln.setAttribute("stroke-width", "0.5");
+    grid.appendChild(ln);
+  }
+  const series = state.rewardHistory.length ? state.rewardHistory : [0];
+  const max = Math.max(4, ...series);
+  const min = 0;
+  const n = Math.max(1, series.length - 1);
+  const points = series.map((v, i) => {
+    const x = (i / n) * W;
+    const y = H - P - ((v - min) / (max - min || 1)) * (H - P * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" L ");
+  $("#chartReward").setAttribute("d", "M " + points);
+
+  const lossSeries = state.lossHistory.length ? state.lossHistory : [0.7];
+  const lmax = Math.max(0.7, ...lossSeries);
+  const lmin = Math.min(0.05, ...lossSeries);
+  const ln = Math.max(1, lossSeries.length - 1);
+  const lpoints = lossSeries.map((v, i) => {
+    const x = (i / ln) * W;
+    const y = H - P - ((v - lmin) / (lmax - lmin || 1)) * (H - P * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" L ");
+  $("#chartLoss").setAttribute("d", "M " + lpoints);
+}
+
+/* ----------------------------------------------------------- */
+/*  Build a scripted episode that gets visibly better as the   */
+/*  policy "learns" — fewer wasted moves, bigger end-of-ep r.  */
+/* ----------------------------------------------------------- */
+function buildEpisode(epIdx) {
+  /* learning curve: skill from 0 (random) → 1 (mastered) over ~70 episodes */
+  const skill = 1 - Math.exp(-epIdx / 28);
+  const mission = MISSIONS[epIdx % MISSIONS.length];
+
+  /* per-action reward shaping based on skill */
+  const noise = () => (Math.random() - 0.5) * 0.06;
+  const willSucceed = Math.random() < (0.05 + 0.85 * skill);
+  const turns = [];
+
+  /* 0. scout target sector */
+  turns.push({
+    verb: "scout_sector", arg: mission.sector,
+    sector: mission.sector,
+    reward: 0.04 + 0.02 * skill + noise(),
+    lines: [
+      `<span class="verb">scout_sector</span>(<span class="arg">${mission.sector}</span>)`,
+      `<span class="meta">↳ rumor:</span> ${mission.target} suspicious of loud ops`,
+      `<span class="meta">↳ shaping:</span> <span class="pos">+intel</span>`
+    ],
+    apply: () => { state.resources.intel += 18; },
+  });
+
+  /* 1. (low-skill agents waste a turn) */
+  if (skill < 0.35 && Math.random() < 0.6) {
+    turns.push({
+      verb: "negotiate_pact", arg: "civic_shield",
+      sector: "citadel_gate",
+      reward: -0.05 + noise(),
+      lines: [
+        `<span class="verb">negotiate_pact</span>(<span class="arg">civic_shield</span>)`,
+        `<span class="meta">↳</span> civic_shield rejects · low influence`,
+        `<span class="neg">penalty −0.05</span> <span class="meta">repeated bad target</span>`
+      ],
+      apply: () => { state.resources.influence -= 4; },
+    });
+  }
+
+  /* 2. negotiate target faction */
+  turns.push({
+    verb: "negotiate_pact", arg: mission.target,
+    sector: SECTOR_POS[mission.sector] ? mission.sector : "data_spire",
+    reward: 0.15 + 0.12 * skill + noise(),
+    lines: [
+      `<span class="verb">negotiate_pact</span>(<span class="arg">${mission.target}</span>)`,
+      `<span class="meta">↳ alliance formed:</span> <span class="pos">${mission.target} ALLIED</span>`,
+      `<span class="meta">↳ shaping:</span> coalition gate <span class="pos">opened</span>`
+    ],
+    apply: () => {
+      state.alliances.add(mission.target);
+      state.gates.add("coalition");
+      state.resources.influence += 10;
+    },
+  });
+
+  /* 3. trade resources */
+  turns.push({
+    verb: "trade_resources", arg: "credits→intel",
+    sector: "data_spire",
+    reward: 0.08 + 0.06 * skill + noise(),
+    lines: [
+      `<span class="verb">trade_resources</span>(<span class="arg">credits → intel</span>)`,
+      `<span class="meta">↳</span> resource floors hit · gate <span class="pos">opened</span>`,
+    ],
+    apply: () => {
+      state.resources.credits -= 12;
+      state.resources.intel += 22;
+      state.gates.add("resources");
+    },
+  });
+
+  /* 4. (high-skill skips this; low-skill sometimes calls run_operation early) */
+  if (skill < 0.4 && Math.random() < 0.5) {
+    turns.push({
+      verb: "run_operation", arg: "OP-LANTERN",
+      sector: mission.sector,
+      reward: -0.18 + noise(),
+      lines: [
+        `<span class="verb">run_operation</span>(<span class="arg">OP-LANTERN</span>)`,
+        `<span class="neg">penalty −0.18</span> <span class="meta">premature: asset not deployed</span>`
+      ],
+      apply: () => { state.resources.energy -= 8; },
+    });
+  }
+
+  /* 5. deploy asset */
+  turns.push({
+    verb: "deploy_asset", arg: mission.sector,
+    sector: mission.sector,
+    reward: 0.10 + 0.08 * skill + noise(),
+    lines: [
+      `<span class="verb">deploy_asset</span>(<span class="arg">${mission.sector}</span>)`,
+      `<span class="meta">↳</span> drone in position · awaiting op code`,
+    ],
+    apply: () => { state.resources.energy -= 6; },
+  });
+
+  /* 6. run operation */
+  turns.push({
+    verb: "run_operation", arg: "OP-LANTERN",
+    sector: mission.sector,
+    reward: 0.20 + 0.15 * skill + noise(),
+    lines: [
+      `<span class="verb">run_operation</span>(<span class="arg">OP-LANTERN</span>)`,
+      `<span class="meta">↳</span> operation <span class="pos">executed</span> · gate <span class="pos">opened</span>`,
+    ],
+    apply: () => {
+      state.gates.add("operation");
+      state.resources.energy -= 10;
+    },
+  });
+
+  /* 7. secure extraction */
+  if (willSucceed) {
+    turns.push({
+      verb: "secure_extraction",
+      arg: `[${mission.keywords.join(", ")}] @ ${mission.sector}`,
+      sector: mission.sector,
+      reward: 0.45 + 0.85 * skill + noise(),
+      lines: [
+        `<span class="verb">secure_extraction</span>(<span class="arg">${mission.sector}</span>)`,
+        `<span class="meta">↳ message keywords:</span> ${mission.keywords.map(k => `<span class="pos">${k}</span>`).join(" · ")}`,
+        `<span class="meta">↳ all 5 gates aligned —</span> <span class="pos">SUCCESS</span>`,
+        `<span class="pos">+terminal bonus</span>`
+      ],
+      apply: () => {
+        state.gates.add("message");
+        state.gates.add("sector");
+      },
+      success: true,
+    });
+  } else {
+    turns.push({
+      verb: "secure_extraction",
+      arg: `[partial] @ ${mission.sector}`,
+      sector: mission.sector,
+      reward: -0.08 + noise(),
+      lines: [
+        `<span class="verb">secure_extraction</span>(<span class="arg">${mission.sector}</span>)`,
+        `<span class="meta">↳ message missing keyword:</span> <span class="neg">${mission.keywords[mission.keywords.length-1]}</span>`,
+        `<span class="neg">FAILED extraction</span> <span class="meta">message gate locked</span>`
+      ],
+      apply: () => { state.gates.add("sector"); },
+      success: false,
+    });
+  }
+
+  return { mission, turns, willSucceed };
+}
+
+/* runs one turn at a time, with delay */
+let runHandle = null;
+function startEpisode() {
+  state.episodeReward = 0;
+  state.alliances = new Set();
+  state.gates = new Set();
+  state.resources = { credits: 30, intel: 20, influence: 25, energy: 60 };
+  state.step = 0;
+
+  const ep = buildEpisode(state.episode);
+  state.mission = ep.mission;
+  $("#missionName").textContent = ep.mission.name;
+  $("#threatLevel").textContent = "THREAT · " + ep.mission.threat;
+  highlightSector(ep.mission.sector, "target");
+  renderTurnDial(0);
+  renderAlliances();
+  renderGates();
+  renderResources();
+  logEpisode(state.episode, ep.mission);
+
+  let i = 0;
+  function nextTurn() {
+    if (state.paused) { runHandle = setTimeout(nextTurn, 200); return; }
+    if (i >= ep.turns.length) {
+      finishEpisode(ep);
+      return;
+    }
+    const t = ep.turns[i];
+    state.step = i + 1;
+    state.totalSteps += 1;
+    renderTurnDial(state.step);
+
+    if (t.sector) {
+      moveAgent(t.sector);
+      highlightSector(t.sector, "active");
+    }
+    /* re-mark target sector overlay if not the active one */
+    if (t.sector !== ep.mission.sector) {
+      const sec = document.querySelector(`.sector[data-sector="${ep.mission.sector}"]`);
+      if (sec && !sec.classList.contains("active")) sec.classList.add("target");
+    }
+
+    /* apply state side-effects */
+    if (typeof t.apply === "function") t.apply();
+    state.episodeReward += t.reward;
+
+    /* highlight targeted faction in HUD if negotiating */
+    if (t.verb === "negotiate_pact") renderAlliances(t.arg);
+    else renderAlliances();
+    renderGates();
+    renderResources();
+
+    /* HUD action text */
+    $("#currentAction").textContent = `${t.verb}(${t.arg})`;
+    const tr = $("#turnReward");
+    tr.textContent = (t.reward >= 0 ? "+" : "") + t.reward.toFixed(2);
+    tr.style.color = t.reward >= 0 ? "var(--green)" : "var(--red)";
+
+    popActionCard(t.verb, t.arg, t.reward);
+    logTurn(state.step, t.lines.concat([
+      `<span class="meta">↳ turn reward:</span> ${
+        t.reward >= 0
+          ? `<span class="pos">+${t.reward.toFixed(2)}</span>`
+          : `<span class="neg">${t.reward.toFixed(2)}</span>`
+      }`
+    ]));
+
+    renderStats();
+
+    i += 1;
+    runHandle = setTimeout(nextTurn, state.turnInterval / state.speed);
+  }
+  runHandle = setTimeout(nextTurn, 600 / state.speed);
+}
+
+function finishEpisode(ep) {
+  state.rewardHistory.push(state.episodeReward);
+  state.successHistory.push(!!ep.willSucceed);
+  if (state.episodeReward > state.best) state.best = state.episodeReward;
+
+  /* loss decays roughly with skill */
+  const skill = 1 - Math.exp(-state.episode / 28);
+  const loss = clamp(0.68 - 0.55 * skill + (Math.random() - 0.5) * 0.04, 0.04, 0.9);
+  state.lossHistory.push(loss);
+
+  const succLine = ep.willSucceed
+    ? `<span class="pos">EXTRACTION CLEAN</span> · ep reward <span class="pos">${state.episodeReward.toFixed(2)}</span>`
+    : `<span class="neg">MISSION COLLAPSE</span> · ep reward <span class="neg">${state.episodeReward.toFixed(2)}</span>`;
+  const div = document.createElement("div");
+  div.className = "episode-divider";
+  div.innerHTML = `■ end of episode ${state.episode} · ${succLine}`;
+  $("#feed").appendChild(div);
+
+  renderStats();
+  renderChart();
+
+  state.episode += 1;
+  setTimeout(startEpisode, 900 / state.speed);
+}
+
+/* --- CONTROLS --- */
+$("#pauseBtn").addEventListener("click", () => {
+  state.paused = !state.paused;
+  $("#pauseBtn").textContent = state.paused ? "RESUME" : "PAUSE";
+  $("#livebadge").textContent = state.paused ? "● PAUSED" : "● TRAINING";
+  $("#livebadge").style.color = state.paused ? "var(--amber)" : "var(--green)";
+  $("#livebadge").style.borderColor = state.paused
+    ? "rgba(255,181,71,0.5)" : "rgba(74,222,128,0.4)";
+  $("#livebadge").style.background = state.paused
+    ? "rgba(255,181,71,0.1)" : "rgba(74,222,128,0.1)";
+});
+$("#speedBtn").addEventListener("click", () => {
+  const speeds = [1, 2, 4, 0.5];
+  const i = speeds.indexOf(state.speed);
+  state.speed = speeds[(i + 1) % speeds.length];
+  $("#speedBtn").textContent = "SPEED " + state.speed + "x";
+  $("#feedRate").textContent = `~ ${(1.2 * state.speed).toFixed(1)} t/s`;
+});
+$("#resetBtn").addEventListener("click", () => {
+  clearTimeout(runHandle);
+  state.episode = 1;
+  state.rewardHistory = [];
+  state.lossHistory = [];
+  state.successHistory = [];
+  state.best = 0;
+  state.totalSteps = 0;
+  $("#feed").innerHTML = "";
+  renderChart();
+  renderStats();
+  startEpisode();
+});
+
+/* boot */
+renderTurnDial(0);
+renderResources();
+renderAlliances();
+renderGates();
+renderStats();
+renderChart();
+startEpisode();
+</script>
+</body>
+</html>

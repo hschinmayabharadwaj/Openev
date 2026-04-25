@@ -1,13 +1,37 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 
 from models import Action, ResetRequest, StepResponse
 from server.environment import NeonSyndicateEnvironment
 
 app = FastAPI(title="Neon Syndicate OpenEnv", version="1.0.0")
 env = NeonSyndicateEnvironment()
+
+# Resolve the bundled landing page (animated training demo) once at import time.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_LANDING_PAGE = _REPO_ROOT / "docs" / "visual_demo.html"
+
+
+@app.get("/", response_class=HTMLResponse, response_model=None)
+def root():
+	"""Serve the animated training demo at the Space root URL.
+
+	Without this route HF probes (and curious visitors) get a bare 404 even
+	though the API is healthy. Returning the demo HTML doubles as a judge
+	landing page.
+	"""
+	if _LANDING_PAGE.exists():
+		return FileResponse(_LANDING_PAGE, media_type="text/html")
+	return HTMLResponse(
+		"<h1>Neon Syndicate OpenEnv</h1>"
+		"<p>API is up. Try <code>/health</code>, <code>/tasks</code>, or <code>/docs</code>.</p>",
+		status_code=200,
+	)
 
 
 @app.get("/health")
