@@ -57,3 +57,13 @@ logs/
 # Docker
 .dockerignore
 docker-compose.override.yml
+
+# Large model checkpoints (too big for git; keep small JSONL/PNG telemetry)
+notebooks/artifacts/trl-neon-model/model.safetensors
+notebooks/artifacts/trl-neon-model/tokenizer.json
+notebooks/artifacts/trl-neon-model/vocab.json
+notebooks/artifacts/trl-neon-model/merges.txt
+notebooks/artifacts/.DS_Store
+
+# Hackathon briefing slides (not project content)
+*.pdf

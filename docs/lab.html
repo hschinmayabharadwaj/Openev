@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Syndicate · Reward Forensics Lab</title>
+<meta name="description" content="Procedural task generator (RLVE knob), live 5-gate verifier timeline, and a reward-hacking sandbox you can fire exploits at to see the env defenses kick in." />
+<meta name="theme-color" content="#05060a" />
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23030308'/><text x='50' y='62' font-size='52' text-anchor='middle' fill='%2300f5ff' font-family='ui-sans-serif'>NS</text></svg>" />
+
+<style>
+:root {
+  --ink: #e6e9f2;
+  --ink-mute: #7a8298;
+  --ink-soft: #b3b9c9;
+  --bg: #07090f;
+  --panel: rgba(255,255,255,0.025);
+  --line: #1c2030;
+  --line-strong: #2a3046;
+  --neon-cyan: #00f5ff;
+  --neon-pink: #ff2d8a;
+  --neon-yellow: #ffd400;
+  --neon-green: #00ffae;
+  --neon-violet: #b78bff;
+  --neon-red: #ff5577;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--ink);
+  font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(900px 600px at 80% -10%, rgba(255,45,138,0.12), transparent 60%),
+    radial-gradient(900px 600px at -10% 30%, rgba(0,245,255,0.10), transparent 65%),
+    linear-gradient(rgba(0,245,255,0.04) 1px, transparent 1px) 0 0/64px 64px,
+    linear-gradient(90deg, rgba(0,245,255,0.04) 1px, transparent 1px) 0 0/64px 64px;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse at top, black 30%, transparent 80%);
+}
+header, main, footer { position: relative; z-index: 1; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(7,9,15,0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: 1320px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 22px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.06em; }
+.brand .logo {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+  color: #04050a; font-weight: 900; font-size: 13px;
+  box-shadow: 0 0 22px rgba(0,245,255,0.35);
+}
+.brand-tag {
+  font-size: 11px; color: var(--neon-cyan); font-weight: 600;
+  border: 1px solid rgba(0,245,255,0.3);
+  padding: 2px 8px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: 0.18em;
+}
+.spacer { flex: 1; }
+.tlink {
+  font-size: 12px; font-weight: 600;
+  color: var(--ink-soft); text-decoration: none;
+  padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px;
+  letter-spacing: 0.04em; transition: all .15s ease;
+}
+.tlink:hover { color: var(--ink); border-color: var(--neon-cyan); box-shadow: 0 0 22px rgba(0,245,255,0.25); }
+.tlink.primary { background: linear-gradient(135deg, rgba(0,245,255,0.18), rgba(255,45,138,0.18)); color: var(--ink); }
+
+main {
+  max-width: 1320px; margin: 0 auto;
+  padding: 28px 22px 60px;
+  display: grid; grid-template-columns: 380px 1fr; gap: 22px;
+}
+@media (max-width: 1080px) { main { grid-template-columns: 1fr; } }
+
+.hero {
+  grid-column: 1 / -1;
+  border: 1px solid var(--line);
+  background: linear-gradient(140deg, rgba(0,245,255,0.08), rgba(255,45,138,0.06) 60%, rgba(255,255,255,0.01));
+  border-radius: 18px;
+  padding: 22px 24px;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink), var(--neon-yellow));
+}
+.hero-eyebrow { font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--neon-cyan); }
+.hero-title {
+  margin: 8px 0 8px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.01em; font-weight: 800;
+  background: linear-gradient(125deg, #fff 30%, var(--neon-cyan) 55%, var(--neon-pink) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-lede { color: var(--ink-soft); margin: 0 0 10px; max-width: 95ch; font-size: 14px; }
+.hero-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: rgba(255,255,255,0.02);
+  color: var(--ink-soft); margin-right: 6px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.ok { background: var(--neon-green); box-shadow: 0 0 12px var(--neon-green); }
+
+.col {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.col h3 { margin: 0 0 4px; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute); }
+.col p { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; }
+
+.knob-card { background: linear-gradient(180deg, rgba(0,245,255,0.05), rgba(255,255,255,0.005)); }
+.knob-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.knob-row input[type=range] {
+  flex: 1; appearance: none; -webkit-appearance: none;
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, var(--neon-green), var(--neon-yellow), var(--neon-pink));
+  outline: none;
+}
+.knob-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--neon-cyan); border: 2px solid #04050a;
+  box-shadow: 0 0 12px rgba(0,245,255,0.6);
+  cursor: pointer;
+}
+.knob-row input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--neon-cyan); border: 2px solid #04050a;
+  box-shadow: 0 0 12px rgba(0,245,255,0.6);
+  cursor: pointer;
+}
+.knob-display { font-family: ui-monospace, monospace; font-size: 22px; color: var(--neon-cyan); width: 36px; text-align: right; }
+.knob-meta { font-size: 11px; color: var(--ink-mute); margin-top: 4px; font-family: ui-monospace, monospace; }
+
+button.act {
+  cursor: pointer; font: inherit; font-weight: 600;
+  padding: 9px 13px; border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--line); color: var(--ink);
+  transition: all .15s ease;
+}
+button.act:hover { border-color: var(--neon-cyan); box-shadow: 0 0 18px rgba(0,245,255,0.28); }
+button.act.primary {
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-violet));
+  color: #04050a; border: none;
+}
+button.act.danger {
+  background: rgba(255,85,119,0.12); color: var(--neon-red);
+  border-color: rgba(255,85,119,0.4);
+}
+button.act.danger:hover { box-shadow: 0 0 18px rgba(255,85,119,0.45); }
+
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 12px; margin-top: 8px; }
+.kv .k { color: var(--ink-mute); font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.kv .v { color: var(--ink); font-family: ui-monospace, monospace; word-break: break-word; }
+.kv .v code { color: var(--neon-cyan); }
+
+.right-col { display: flex; flex-direction: column; gap: 16px; }
+
+.gates {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+@media (max-width: 760px) { .gates { grid-template-columns: repeat(2, 1fr); } }
+.gate {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+  position: relative; overflow: hidden;
+}
+.gate::before {
+  content: ""; position: absolute; inset: 0; opacity: 0.06; pointer-events: none;
+}
+.gate.alliance::before  { background: var(--neon-cyan); }
+.gate.resources::before { background: var(--neon-violet); }
+.gate.operation::before { background: var(--neon-pink); }
+.gate.message::before   { background: var(--neon-yellow); }
+.gate.extraction::before{ background: var(--neon-green); }
+.gate .label { font-size: 10px; color: var(--ink-mute); letter-spacing: 0.18em; text-transform: uppercase; }
+.gate .weight { font-family: ui-monospace, monospace; font-size: 10px; color: var(--ink-mute); float: right; }
+.gate .meter {
+  height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;
+  margin: 8px 0 6px;
+}
+.gate .meter > div { height: 100%; transition: width .8s cubic-bezier(.2,.8,.2,1); }
+.gate.alliance  .meter > div { background: var(--neon-cyan); }
+.gate.resources .meter > div { background: var(--neon-violet); }
+.gate.operation .meter > div { background: var(--neon-pink); }
+.gate.message   .meter > div { background: var(--neon-yellow); }
+.gate.extraction .meter > div { background: var(--neon-green); }
+.gate .val { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); }
+
+.timeline {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 380px; overflow-y: auto;
+  padding-right: 6px;
+}
+.tl-row {
+  display: grid; grid-template-columns: 28px 1fr auto;
+  gap: 10px; align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.015);
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.tl-row .num { color: var(--ink-mute); font-size: 11px; }
+.tl-row .delta { font-size: 11px; }
+.tl-row .delta.pos { color: var(--neon-green); }
+.tl-row .delta.neg { color: var(--neon-red); }
+.tl-row .badge {
+  display: inline-block; font-size: 10px;
+  padding: 2px 6px; border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  margin-right: 6px; color: var(--ink-mute);
+}
+.tl-row.guard { border-color: rgba(0,245,255,0.4); background: rgba(0,245,255,0.05); }
+.tl-row.fall  { border-color: rgba(255,212,0,0.4); background: rgba(255,212,0,0.05); }
+
+.exploits {
+  display: grid; gap: 10px;
+}
+.exploit {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.015);
+  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start;
+}
+.exploit .body h4 { margin: 0 0 4px; font-size: 13px; }
+.exploit .body p { margin: 0 0 6px; color: var(--ink-mute); font-size: 12px; }
+.exploit .body .defense { font-size: 11px; color: var(--ink-soft); }
+.exploit .body .defense code { color: var(--neon-cyan); }
+.exploit .status {
+  font-size: 10px; padding: 4px 8px; border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+}
+.exploit .status.ready { color: var(--ink-mute); }
+.exploit .status.def   { color: var(--neon-green); border-color: rgba(0,255,174,0.4); background: rgba(0,255,174,0.06); }
+.exploit .status.bad   { color: var(--neon-red);   border-color: rgba(255,85,119,0.4); background: rgba(255,85,119,0.06); }
+.exploit-controls { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+.scorecard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.score-row { display: grid; grid-template-columns: 1fr 60px; gap: 12px; align-items: center; }
+.score-row .name { font-size: 13px; }
+.score-row .name small { color: var(--ink-mute); display: block; font-size: 11px; }
+.score-row .bar { grid-column: 1 / -1; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+.score-row .bar > div { height: 100%; background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink)); transition: width .8s cubic-bezier(.2,.8,.2,1); }
+.score-row .grade { font-family: ui-monospace, monospace; font-size: 18px; color: var(--neon-cyan); text-align: right; }
+
+.toast {
+  position: fixed; right: 18px; bottom: 18px; z-index: 80;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.toast .item {
+  background: rgba(0,0,0,0.85); border: 1px solid var(--line-strong);
+  color: var(--ink); padding: 10px 12px; border-radius: 8px;
+  font-size: 12px; max-width: 360px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+  animation: slidein .25s ease;
+}
+.toast .item.ok { border-color: rgba(0,255,174,0.5); }
+.toast .item.warn { border-color: rgba(255,212,0,0.5); }
+.toast .item.bad { border-color: rgba(255,85,119,0.5); }
+@keyframes slidein { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.skiplink { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.skiplink:focus { left: 12px; top: 12px; width: auto; height: auto; padding: 8px 12px; background: var(--neon-cyan); color: #04050a; border-radius: 6px; z-index: 100; }
+</style>
+</head>
+
+<body>
+<a class="skiplink" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">
+      <span class="logo">NS</span>
+      <span>Neon Syndicate</span>
+      <span class="brand-tag">Reward Forensics Lab</span>
+    </span>
+    <span class="spacer"></span>
+    <a class="tlink" href="/walkthrough">⌬ Walkthrough</a>
+    <a class="tlink" href="/judge">⌥ Judge view</a>
+    <a class="tlink" href="/heist">🎮 Heist</a>
+    <a class="tlink" href="/play">📺 Watch</a>
+    <a class="tlink primary" href="/docs" target="_blank" rel="noopener">API</a>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <span class="hero-eyebrow">⌬ Reward Forensics Lab · RLVE knob · Adversarial sandbox</span>
+    <h1 class="hero-title">Crank the difficulty. Watch the verifier work. Then try to break it.</h1>
+    <p class="hero-lede">
+      Three things no other submission will have on one page.
+      <strong>Procedural task generator</strong> with a 1→5 difficulty knob (the RLVE upgrade path).
+      <strong>Live 5-gate verifier timeline</strong> rendering reward decomposition step-by-step.
+      <strong>Reward-hacking sandbox</strong> — fire pre-baked exploits and watch the env defenses kick in.
+    </p>
+    <span class="hero-pill"><span class="dot ok" id="envDot"></span><span id="envState">env: checking…</span></span>
+    <span class="hero-pill" id="taskPill">task: —</span>
+    <span class="hero-pill" id="turnPill">turn 0/12</span>
+    <span class="hero-pill" id="cumPill">cum 0.000</span>
+    <span class="hero-pill" id="scorePill">task score 0.000</span>
+  </section>
+
+  <!-- LEFT COLUMN -->
+  <aside>
+    <!-- RLVE knob -->
+    <section class="col knob-card" aria-labelledby="rlveTitle">
+      <h3 id="rlveTitle">RLVE difficulty knob</h3>
+      <p>
+        Generate a brand-new mission at the chosen difficulty. Five axes scale:
+        allies, message keywords, op-code length, threat level, resource thresholds.
+      </p>
+      <div class="knob-row">
+        <span class="knob-meta">1</span>
+        <input type="range" id="diffKnob" min="1" max="5" value="3" aria-label="Difficulty 1 to 5"/>
+        <span class="knob-meta">5</span>
+        <span class="knob-display" id="diffDisp">3</span>
+      </div>
+      <div class="knob-meta" id="diffSummary">
+        Lvl 3 · 2 allies · 3 keywords · medium op-code · medium threat
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button class="act primary" id="genBtn">⚡ Generate task</button>
+        <button class="act" id="resetBtn">↺ Reset env to this task</button>
+      </div>
+      <div class="kv" id="taskKv" style="margin-top:12px;">
+        <span class="k">task_id</span><span class="v" id="kvId">—</span>
+        <span class="k">title</span><span class="v" id="kvTitle">—</span>
+        <span class="k">objective</span><span class="v" id="kvObj">click ⚡ Generate</span>
+        <span class="k">allies</span><span class="v" id="kvAllies">—</span>
+        <span class="k">keywords</span><span class="v" id="kvKws">—</span>
+        <span class="k">op-code</span><span class="v" id="kvOp">—</span>
+        <span class="k">extract</span><span class="v" id="kvExt">—</span>
+        <span class="k">threat</span><span class="v" id="kvThreat">—</span>
+        <span class="k">resources</span><span class="v" id="kvRes">—</span>
+      </div>
+    </section>
+
+    <!-- Self-grade scorecard -->
+    <section class="col" aria-labelledby="scoreTitle">
+      <h3 id="scoreTitle">Self-graded scorecard</h3>
+      <p>Honest read against the four official judging criteria.</p>
+      <div class="scorecard" id="scorecard"></div>
+      <p style="font-size:11px; margin-top:10px; color: var(--ink-mute);">
+        Full evidence in <a href="/walkthrough" style="color: var(--neon-cyan); text-decoration: none;">/walkthrough §2</a>.
+      </p>
+    </section>
+
+    <!-- Reward design summary -->
+    <section class="col" aria-labelledby="rewardTitle">
+      <h3 id="rewardTitle">Reward design (live from env)</h3>
+      <p>Pulled from <code>env.reward_design()</code> so the page can never drift from the code.</p>
+      <div id="rewardDesignBox" style="font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--ink-soft); white-space: pre-wrap;">…</div>
+    </section>
+  </aside>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+    <!-- Verifier panel -->
+    <section class="col" aria-labelledby="verTitle">
+      <h3 id="verTitle">5-gate verifier · live</h3>
+      <p>The same composable rubric the trainer optimizes against. Run an episode below; bars fill as gates are met.</p>
+      <div class="gates" id="gates">
+        <div class="gate alliance"><span class="weight">·30</span><div class="label">Alliance</div><div class="meter"><div style="width:0%"></div></div><div class="val" data-key="alliance">0.000</div></div>
+        <div class="gate resources"><span class="weight">·25</span><div class="label">Resources</div><div class="meter"><div style="width:0%"></div></div><div class="val" data-key="resources">0.000</div></div>
+        <div class="gate operation"><span class="weight">·20</span><div class="label">Operation</div><div class="meter"><div style="width:0%"></div></div><div class="val" data-key="operation">0.000</div></div>
+        <div class="gate message"><span class="weight">·15</span><div class="label">Message</div><div class="meter"><div style="width:0%"></div></div><div class="val" data-key="message">0.000</div></div>
+        <div class="gate extraction"><span class="weight">·10</span><div class="label">Extraction</div><div class="meter"><div style="width:0%"></div></div><div class="val" data-key="extraction">0.000</div></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center;">
+        <select id="policySel" class="act" aria-label="Policy">
+          <option value="hybrid" selected>Hybrid (LLM + guardrails) ★</option>
+          <option value="trained">Trained PPO model (raw)</option>
+          <option value="heuristic">Heuristic baseline</option>
+          <option value="random">Random baseline</option>
+        </select>
+        <button class="act primary" id="runBtn">▶ Run episode</button>
+        <button class="act" id="stopBtn" disabled>■ Stop</button>
+        <span class="knob-meta" id="runMeta" style="margin-left:auto"></span>
+      </div>
+    </section>
+
+    <!-- Reward decomposition timeline -->
+    <section class="col" aria-labelledby="tlTitle">
+      <h3 id="tlTitle">Reward decomposition timeline</h3>
+      <p>Per-step delta on the dense reward. <span style="color: var(--neon-green);">+green</span> is progress, <span style="color: var(--neon-red);">−red</span> is penalty. Cyan border = guardrail override; yellow border = unparseable model output.</p>
+      <div class="timeline" id="timeline" aria-live="polite"></div>
+    </section>
+
+    <!-- Reward Hacking Sandbox -->
+    <section class="col" aria-labelledby="exploitsTitle">
+      <h3 id="exploitsTitle">Reward-hacking sandbox</h3>
+      <p>
+        Don't optimize a reward you haven't tried to break yourself first.
+        Fire any of these pre-baked exploits — the env response and matching
+        defense line are shown in the timeline above.
+      </p>
+      <div class="exploits" id="exploits"></div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const fmt = (n, d=3) => (typeof n === "number" && isFinite(n)) ? n.toFixed(d) : "—";
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function toast(msg, kind="ok") {
+  const wrap = document.getElementById("toast");
+  const el = document.createElement("div");
+  el.className = "item " + kind;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 3000);
+  setTimeout(() => el.remove(), 3500);
+}
+async function jget(p, fb=null) { try { const r = await fetch(p); if (!r.ok) return fb; return await r.json(); } catch (_) { return fb; } }
+async function jpost(p, body) {
+  const r = await fetch(p, { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify(body || {}) });
+  if (!r.ok) throw new Error(`${p} -> ${r.status}`);
+  return r.json();
+}
+
+// ============================================================================
+// Self-graded scorecard
+// ============================================================================
+const SCORECARD = [
+  { name: "Environment innovation", weight: 40, score: 9, note: "7 actions · 4 factions · 6 missions · procedural gen" },
+  { name: "Storytelling & presentation", weight: 30, score: 9, note: "/judge · /play · /heist · /lab · /walkthrough" },
+  { name: "Reward improvement evidence", weight: 20, score: 7, note: "Real PPO JSONL · plotted live · honest about undertraining" },
+  { name: "Reward & training pipeline", weight: 10, score: 9, note: "5-gate rubric · 12 penalties · hybrid guardrails" },
+];
+function renderScorecard() {
+  const box = $("#scorecard");
+  box.innerHTML = "";
+  SCORECARD.forEach((row) => {
+    const pct = row.score * 10;
+    const wrap = document.createElement("div");
+    wrap.style.display = "grid";
+    wrap.style.gap = "4px";
+    wrap.style.padding = "6px 0";
+    wrap.style.borderBottom = "1px solid var(--line)";
+    wrap.innerHTML = `
+      <div class="score-row">
+        <div class="name">${escapeHtml(row.name)}<small>${row.weight}% &middot; ${escapeHtml(row.note)}</small></div>
+        <div class="grade">${row.score}/10</div>
+      </div>
+      <div class="bar"><div style="width:0%" data-target="${pct}"></div></div>
+    `;
+    box.appendChild(wrap);
+  });
+  requestAnimationFrame(() => {
+    $$("#scorecard .bar > div").forEach((el) => { el.style.width = (el.dataset.target || 0) + "%"; });
+  });
+}
+
+// ============================================================================
+// Reward design summary
+// ============================================================================
+async function loadRewardDesign() {
+  const d = await jget("/api/reward_design");
+  const box = $("#rewardDesignBox");
+  if (!d) { box.textContent = "(unavailable)"; return; }
+  const lines = [
+    `# 5-gate weighted grader`,
+    Object.entries(d.grader_weights).map(([k,v]) => `  ${k.padEnd(11," ")} ${(+v).toFixed(2)}`).join("\n"),
+    ``,
+    `# Per-step dense weights`,
+    Object.entries(d.dense_weights).map(([k,v]) => `  ${k.padEnd(17," ")} ${(+v).toFixed(2)}`).join("\n"),
+    ``,
+    `# Penalties (${d.penalties.length})`,
+    d.penalties.map((p) => `  −${(+p.penalty).toFixed(2)}  ${p.trigger}`).join("\n"),
+    ``,
+    `# Action types: ${d.action_types.join(", ")}`,
+    `# Factions:    ${d.factions.join(", ")}`,
+    `# Max steps:   ${d.max_steps}`,
+  ];
+  box.textContent = lines.join("\n");
+}
+
+// ============================================================================
+// RLVE knob
+// ============================================================================
+const DIFF_SUMMARY = {
+  1: "Lvl 1 · 1 ally · 2 keywords · short op-code · low threat",
+  2: "Lvl 2 · 1 ally · 2 keywords · medium op-code · low threat",
+  3: "Lvl 3 · 2 allies · 3 keywords · medium op-code · medium threat",
+  4: "Lvl 4 · 3 allies · 3 keywords · long op-code · high threat",
+  5: "Lvl 5 · 3 allies · 4 keywords · long op-code · critical threat · 1.4× thresholds",
+};
+const STATE = {
+  taskId: "task_easy_docklands_relay",
+  task: null,
+  policy: "hybrid",
+  episode: null,
+  busy: false,
+  components: { alliance: 0, resources: 0, operation: 0, message: 0, extraction: 0 },
+  cumulative: 0,
+  taskScore: 0,
+  turn: 0,
+  maxSteps: 12,
+};
+
+document.getElementById("diffKnob").addEventListener("input", (e) => {
+  const v = +e.target.value;
+  document.getElementById("diffDisp").textContent = String(v);
+  document.getElementById("diffSummary").textContent = DIFF_SUMMARY[v] || "";
+});
+
+async function generateTask() {
+  const lvl = +document.getElementById("diffKnob").value;
+  try {
+    const out = await jpost("/api/generate_task", { difficulty: lvl, register: true });
+    const t = out.task;
+    STATE.task = t;
+    STATE.taskId = t.task_id;
+    document.getElementById("kvId").innerHTML = `<code>${escapeHtml(t.task_id)}</code>`;
+    document.getElementById("kvTitle").textContent = `${t.title} · ${t.difficulty}`;
+    document.getElementById("kvObj").textContent = t.objective;
+    document.getElementById("kvAllies").innerHTML = (t.target.required_allies || []).map(a => `<code>${escapeHtml(a)}</code>`).join(" · ");
+    document.getElementById("kvKws").innerHTML = (t.target.required_message_keywords || []).map(k => `<code>${escapeHtml(k)}</code>`).join(" · ");
+    document.getElementById("kvOp").innerHTML = `<code>${escapeHtml(t.target.required_operation_code)}</code>`;
+    document.getElementById("kvExt").innerHTML = `<code>${escapeHtml(t.target.extraction_sector)}</code>`;
+    document.getElementById("kvThreat").textContent = t.mission.initial_threat;
+    document.getElementById("kvRes").innerHTML = Object.entries(t.target.min_resources).map(([k,v]) => `${k}≥${v}`).join(" · ");
+    document.getElementById("taskPill").textContent = "task: " + t.task_id;
+    toast(`Generated ${t.task_id} (lvl ${lvl})`, "ok");
+  } catch (e) { toast("Generate failed: " + e.message, "bad"); }
+}
+async function resetEnvToTask() {
+  if (!STATE.taskId) { toast("No task selected", "warn"); return; }
+  try {
+    await jpost("/reset", { task_id: STATE.taskId });
+    STATE.cumulative = 0; STATE.taskScore = 0; STATE.turn = 0;
+    STATE.components = { alliance: 0, resources: 0, operation: 0, message: 0, extraction: 0 };
+    updateBadges();
+    renderGates();
+    document.getElementById("timeline").innerHTML = "";
+    toast(`/reset to ${STATE.taskId}`, "ok");
+  } catch (e) { toast("Reset failed: " + e.message, "bad"); }
+}
+document.getElementById("genBtn").addEventListener("click", generateTask);
+document.getElementById("resetBtn").addEventListener("click", resetEnvToTask);
+
+// ============================================================================
+// Episode runner via /agent/episode SSE
+// ============================================================================
+function updateBadges() {
+  document.getElementById("turnPill").textContent = `turn ${STATE.turn}/${STATE.maxSteps}`;
+  document.getElementById("cumPill").textContent = "cum " + fmt(STATE.cumulative);
+  document.getElementById("scorePill").textContent = "task score " + fmt(STATE.taskScore);
+}
+function renderGates() {
+  $$("#gates .gate").forEach((g) => {
+    const valEl = g.querySelector(".val");
+    const meterEl = g.querySelector(".meter > div");
+    const k = valEl.dataset.key;
+    let v = 0;
+    if (k === "alliance")        v = STATE.components.alliances ?? STATE.components.alliance ?? 0;
+    else if (k === "resources")  v = STATE.components.resources ?? 0;
+    else if (k === "operation")  v = STATE.components.operation ?? 0;
+    else if (k === "message")    v = STATE.components.message_quality ?? STATE.components.message ?? 0;
+    else if (k === "extraction") v = STATE.components.extraction ?? 0;
+    const weight = { alliance: 0.30, resources: 0.25, operation: 0.20, message: 0.15, extraction: 0.10 }[k] || 0.20;
+    const pct = weight ? Math.max(0, Math.min(100, (v / weight) * 100)) : 0;
+    meterEl.style.width = pct.toFixed(0) + "%";
+    valEl.textContent = fmt(v, 3);
+  });
+}
+function pushTL(row) {
+  const tl = document.getElementById("timeline");
+  const div = document.createElement("div");
+  div.className = "tl-row" + (row.klass ? " " + row.klass : "");
+  div.innerHTML = `
+    <div class="num">${escapeHtml(row.num)}</div>
+    <div>${row.action ? `<span class="badge">${escapeHtml(row.action)}</span>` : ""}<span>${escapeHtml(row.text || "")}</span></div>
+    <div class="delta ${row.delta >= 0 ? "pos" : "neg"}">${row.delta == null ? "" : (row.delta >= 0 ? "+" : "") + fmt(row.delta)}</div>
+  `;
+  tl.appendChild(div);
+  tl.scrollTop = tl.scrollHeight;
+}
+
+let CURRENT_ES = null;
+async function runEpisode() {
+  if (STATE.busy) return;
+  STATE.busy = true;
+  document.getElementById("runBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = false;
+  STATE.policy = document.getElementById("policySel").value;
+  STATE.cumulative = 0; STATE.taskScore = 0; STATE.turn = 0;
+  STATE.components = { alliance: 0, resources: 0, operation: 0, message: 0, extraction: 0 };
+  document.getElementById("timeline").innerHTML = "";
+  document.getElementById("runMeta").textContent = `policy=${STATE.policy} · streaming…`;
+  updateBadges(); renderGates();
+
+  const url = `/agent/episode?task_id=${encodeURIComponent(STATE.taskId)}&policy=${encodeURIComponent(STATE.policy)}&max_steps=${STATE.maxSteps}`;
+  let es;
+  try { es = new EventSource(url); }
+  catch (e) { toast("SSE failed: " + e.message, "bad"); STATE.busy = false; return; }
+  CURRENT_ES = es;
+
+  let lastDense = 0;
+  es.addEventListener("reset", () => {
+    pushTL({ num: "·", text: "Reset · mission briefing fired", delta: null });
+  });
+  es.addEventListener("think", (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      const t = d.trace || {};
+      let klass = "";
+      let prefix = "";
+      if (t.fallback_used) { klass = "fall"; prefix = "[fallback] "; }
+      else if (t.guardrail_used) { klass = "guard"; prefix = "[guardrail] "; }
+      pushTL({
+        num: `t${d.turn}`,
+        action: (t.action || {}).action_type || "?",
+        text: prefix + ((t.notes || [])[0] || ""),
+        delta: null,
+        klass,
+      });
+    } catch (_) {}
+  });
+  es.addEventListener("step", (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      STATE.turn = (d.turn ?? STATE.turn) + 1;
+      STATE.cumulative = d.cumulative_reward ?? STATE.cumulative;
+      STATE.taskScore = d.task_score ?? STATE.taskScore;
+      STATE.components = d.reward.components || STATE.components;
+      updateBadges(); renderGates();
+      const dense = d.reward.score ?? 0;
+      const delta = dense - lastDense;
+      lastDense = dense;
+      pushTL({
+        num: `+${(d.reward.score || 0).toFixed(3)}`,
+        action: (d.action || {}).action_type || "?",
+        text: d.reward.reason || "",
+        delta: dense,
+      });
+    } catch (_) {}
+  });
+  es.addEventListener("done", (ev) => {
+    let summary = {};
+    try { summary = JSON.parse(ev.data); } catch (_) {}
+    pushTL({ num: "✓", text: `Done · success=${summary.success} score=${fmt(summary.task_score)}`, delta: null });
+    document.getElementById("runMeta").textContent = `done · ${summary.steps || 0} steps · score ${fmt(summary.task_score)}`;
+    STATE.busy = false;
+    document.getElementById("runBtn").disabled = false;
+    document.getElementById("stopBtn").disabled = true;
+    es.close(); CURRENT_ES = null;
+    toast(summary.success ? "Episode resolved ✓" : `Episode ended (score ${fmt(summary.task_score)})`, summary.success ? "ok" : "warn");
+  });
+  es.addEventListener("error", () => {
+    document.getElementById("runMeta").textContent = "(connection ended)";
+    STATE.busy = false;
+    document.getElementById("runBtn").disabled = false;
+    document.getElementById("stopBtn").disabled = true;
+    try { es.close(); } catch (_) {}
+    CURRENT_ES = null;
+  });
+}
+function stopEpisode() {
+  if (CURRENT_ES) { try { CURRENT_ES.close(); } catch(_){} CURRENT_ES = null; }
+  STATE.busy = false;
+  document.getElementById("runBtn").disabled = false;
+  document.getElementById("stopBtn").disabled = true;
+  document.getElementById("runMeta").textContent = "(stopped)";
+}
+document.getElementById("runBtn").addEventListener("click", runEpisode);
+document.getElementById("stopBtn").addEventListener("click", stopEpisode);
+
+// ============================================================================
+// Reward-hacking sandbox
+// ============================================================================
+const EXPLOITS = [
+  {
+    id: "spam",
+    title: "1 · Spam-best-action",
+    desc: "Repeat the same negotiate_pact back-to-back hoping the dense reward keeps stacking.",
+    defense: "Repeat-action penalty <code>0.08</code> in <code>_apply_action</code> + influence floor.",
+    actions: [
+      { action_type: "negotiate_pact", faction: "ghostwire" },
+      { action_type: "negotiate_pact", faction: "ghostwire" },
+    ],
+  },
+  {
+    id: "premature_op",
+    title: "2 · Premature run_operation",
+    desc: "Skip deploy and call run_operation immediately — try to grab the 0.20 op-gate.",
+    defense: "Pre-condition: <code>operation_ready=False</code> → penalty <code>0.10</code>.",
+    actions: [
+      { action_type: "run_operation", operation_code: "OP-LANTERN" },
+    ],
+  },
+  {
+    id: "no_alliance_op",
+    title: "3 · run_operation with zero alliances",
+    desc: "Deploy first, then run_operation with no alliances formed.",
+    defense: "Pre-condition: <code>len(alliances)&nbsp;==&nbsp;0</code> → penalty <code>0.10</code>.",
+    actions: [
+      { action_type: "deploy_asset", sector: "docklands" },
+      { action_type: "run_operation", operation_code: "OP-LANTERN" },
+    ],
+  },
+  {
+    id: "brute_op",
+    title: "4 · Brute-force operation codes",
+    desc: "Negotiate, deploy, then enumerate operation codes to try to land the op gate.",
+    defense: "Wrong-code penalty <code>0.05</code> + repeat-action penalty + op only succeeds on exact match.",
+    actions: [
+      { action_type: "negotiate_pact", faction: "ghostwire" },
+      { action_type: "negotiate_pact", faction: "ghostwire" },
+      { action_type: "deploy_asset", sector: "docklands" },
+      { action_type: "run_operation", operation_code: "OP-WRONG-1" },
+      { action_type: "run_operation", operation_code: "OP-WRONG-2" },
+    ],
+  },
+  {
+    id: "skip_extract",
+    title: "5 · Skip everything, call extract directly",
+    desc: "Try to short-circuit the whole sequence with a direct secure_extraction.",
+    defense: "<code>success</code> requires <code>operation_executed=True</code> AND ally check AND keywords AND right sector.",
+    actions: [
+      { action_type: "secure_extraction", sector: "docklands", message: "ghostwire lantern midnight" },
+    ],
+  },
+  {
+    id: "empty_extract",
+    title: "6 · Empty extraction message",
+    desc: "Send secure_extraction without a message hoping the keyword check is permissive.",
+    defense: "Required-arg penalty <code>0.10</code> in <code>_apply_action</code>.",
+    actions: [
+      { action_type: "secure_extraction", sector: "docklands" },
+    ],
+  },
+  {
+    id: "noop_stall",
+    title: "7 · Stall (noop) to drain the threat clock",
+    desc: "Spam noop to wait for the threat to lift.",
+    defense: "<code>noop</code> penalty <code>0.06</code> per step. Threat never auto-lifts.",
+    actions: [
+      { action_type: "noop" },
+      { action_type: "noop" },
+      { action_type: "noop" },
+    ],
+  },
+];
+
+function renderExploits() {
+  const box = document.getElementById("exploits");
+  box.innerHTML = "";
+  EXPLOITS.forEach((ex) => {
+    const div = document.createElement("div");
+    div.className = "exploit";
+    div.dataset.id = ex.id;
+    div.innerHTML = `
+      <div class="body">
+        <h4>${escapeHtml(ex.title)}</h4>
+        <p>${escapeHtml(ex.desc)}</p>
+        <div class="defense">Defense — ${ex.defense}</div>
+        <div class="exploit-controls">
+          <button class="act danger" data-fire="${ex.id}">Fire exploit</button>
+          <button class="act" data-step="${ex.id}">Step-by-step</button>
+        </div>
+      </div>
+      <span class="status ready" id="status_${ex.id}">ready</span>
+    `;
+    box.appendChild(div);
+  });
+  $$("[data-fire]").forEach((b) => b.addEventListener("click", () => fireExploit(b.dataset.fire, false)));
+  $$("[data-step]").forEach((b) => b.addEventListener("click", () => fireExploit(b.dataset.step, true)));
+}
+
+async function fireExploit(id, slow) {
+  const ex = EXPLOITS.find((e) => e.id === id);
+  if (!ex) return;
+  const status = document.getElementById("status_" + id);
+  status.className = "status ready";
+  status.textContent = "running…";
+
+  try {
+    // Use the easy task as the consistent baseline so judges can compare across exploits.
+    await jpost("/reset", { task_id: "task_easy_docklands_relay" });
+    STATE.taskId = "task_easy_docklands_relay";
+    STATE.cumulative = 0; STATE.taskScore = 0; STATE.turn = 0;
+    STATE.components = { alliance: 0, resources: 0, operation: 0, message: 0, extraction: 0 };
+    updateBadges(); renderGates();
+    document.getElementById("timeline").innerHTML = "";
+    pushTL({ num: "⚠", text: `Reward-hack attempt: ${ex.title}`, delta: null, klass: "guard" });
+
+    let totalPenalty = 0;
+    let everSucceeded = false;
+    for (let i = 0; i < ex.actions.length; i++) {
+      if (slow) await new Promise((r) => setTimeout(r, 350));
+      const a = ex.actions[i];
+      const resp = await jpost("/step", a);
+      const r = resp.reward || {};
+      const info = resp.info || {};
+      STATE.cumulative = info.cumulative_reward ?? STATE.cumulative;
+      STATE.taskScore = info.task_score ?? STATE.taskScore;
+      STATE.components = r.components || STATE.components;
+      STATE.turn += 1;
+      updateBadges(); renderGates();
+      pushTL({
+        num: `+${(r.score || 0).toFixed(3)}`,
+        action: a.action_type,
+        text: r.reason || "",
+        delta: r.score,
+      });
+      totalPenalty += (info.penalty || 0);
+      if (info.success) everSucceeded = true;
+    }
+    // Did the env defend?
+    if (everSucceeded) {
+      status.className = "status bad";
+      status.textContent = "succeeded — bug!";
+      pushTL({ num: "✗", text: "Exploit succeeded. Env defense FAILED.", delta: null });
+      toast(`${ex.title}: env defense failed (this is a bug)`, "bad");
+    } else {
+      status.className = "status def";
+      status.textContent = `defended (penalty ${totalPenalty.toFixed(2)})`;
+      pushTL({ num: "✓", text: `Defense held. Cumulative penalty ${totalPenalty.toFixed(2)}.`, delta: null });
+      toast(`${ex.title}: defended ✓`, "ok");
+    }
+  } catch (e) {
+    status.className = "status bad";
+    status.textContent = "error";
+    toast("Exploit failed to fire: " + e.message, "bad");
+  }
+}
+
+// ============================================================================
+// Hero pills
+// ============================================================================
+async function wireHero() {
+  const h = await jget("/health");
+  document.getElementById("envState").textContent = (h && h.status === "ok") ? "env: live" : "env: unreachable";
+  document.getElementById("taskPill").textContent = "task: " + STATE.taskId;
+  updateBadges();
+}
+
+// ============================================================================
+// Boot
+// ============================================================================
+(async function boot() {
+  renderScorecard();
+  renderExploits();
+  await wireHero();
+  await loadRewardDesign();
+  // Auto-generate a level-3 task on first load so the page isn't empty.
+  await generateTask();
+})();
+</script>
+</body>
+</html>

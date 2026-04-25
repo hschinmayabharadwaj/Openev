@@ -12,6 +12,34 @@ from transformers import AutoTokenizer
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 
 
+def resolve_training_device(preference: str) -> torch.device:
+    """Pick device for the model. Default 'auto' prefers CUDA, then CPU (not MPS: TRL+PPO is flaky on MPS)."""
+    p = preference.lower()
+    if p == "cpu":
+        return torch.device("cpu")
+    if p == "cuda":
+        if not torch.cuda.is_available():
+            raise SystemExit("CUDA requested but torch.cuda.is_available() is False")
+        return torch.device("cuda")
+    if p == "mps":
+        if not torch.backends.mps.is_available():
+            raise SystemExit("MPS requested but not available")
+        return torch.device("mps")
+    if p != "auto":
+        raise SystemExit(f"Unknown --device: {preference}")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+
+def model_dtype_for(device: torch.device, use_half: bool) -> torch.dtype:
+    if not use_half or device.type != "cuda":
+        return torch.float32
+    if torch.cuda.is_bf16_supported():
+        return torch.bfloat16
+    return torch.float16
+
+
 ALLOWED_ACTION_TYPES = {
     "scout_sector",
     "negotiate_pact",
@@ -126,23 +154,42 @@ def select_task(task_list: List[Dict[str, Any]], idx: int) -> str:
 def run_training(args: argparse.Namespace) -> None:
     random.seed(args.seed)
     torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("high")
 
     runner = OpenEnvEpisodeRunner(args.env_base_url)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    device = resolve_training_device(args.device)
+    use_half = device.type == "cuda" and not args.fp32
+    dtype = model_dtype_for(device, use_half)
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = AutoModelForCausalLMWithValueHead.from_pretrained(args.model_name)
+    model = AutoModelForCausalLMWithValueHead.from_pretrained(
+        args.model_name,
+        torch_dtype=dtype,
+        attn_implementation=args.attn_implementation,
+    )
+    model = model.to(device)
 
+    accel_kwargs: Dict[str, Any] = {"cpu": True} if device.type == "cpu" else {}
     ppo_config = PPOConfig(
         model_name=args.model_name,
         learning_rate=args.learning_rate,
         batch_size=1,
         mini_batch_size=1,
         gradient_accumulation_steps=1,
+        accelerator_kwargs=accel_kwargs,
         log_with=None,
     )
+
+    # Notebooks / interactive sessions may have initialized Accelerate already; TRL
+    # cannot construct a second Accelerator with different flags without a reset.
+    from accelerate.state import AcceleratorState
+
+    AcceleratorState._reset_state(reset_partial_state=True)
 
     trainer = PPOTrainer(
         config=ppo_config,
@@ -163,6 +210,7 @@ def run_training(args: argparse.Namespace) -> None:
         for _ in range(args.max_steps):
             prompt = build_prompt(observation)
             query_tensor = tokenizer.encode(prompt, return_tensors="pt").squeeze(0)
+            query_tensor = query_tensor.to(model.pretrained_model.device)
 
             response_tensor = trainer.generate(
                 query_tensor,
@@ -170,6 +218,7 @@ def run_training(args: argparse.Namespace) -> None:
                 do_sample=True,
                 top_p=0.9,
                 temperature=0.8,
+                pad_token_id=tokenizer.pad_token_id,
             ).squeeze(0)
 
             response_text = tokenizer.decode(response_tensor, skip_special_tokens=True)
@@ -183,10 +232,11 @@ def run_training(args: argparse.Namespace) -> None:
             reward_value = float(step_payload["reward"]["score"])
             done = bool(step_payload["done"])
 
+            reward_t = torch.tensor(reward_value, dtype=torch.float32, device=device)
             trainer.step(
                 [query_tensor],
                 [response_tensor],
-                [torch.tensor(reward_value, dtype=torch.float32)],
+                [reward_t],
             )
 
             total_reward += reward_value
@@ -239,11 +289,38 @@ def run_training(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Minimal TRL PPO training loop for Neon Syndicate.")
-    parser.add_argument("--env-base-url", type=str, default="http://localhost:7860")
+    parser.add_argument(
+        "--env-base-url",
+        type=str,
+        default="http://localhost:7860",
+        help="OpenEnv API origin, e.g. http://127.0.0.1:7860 or https://YOUR-USER-YOUR-SPACE.hf.space",
+    )
     parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-0.5B-Instruct")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        help="Model device: auto (CUDA if available, else CPU), cpu, cuda, mps (not fully tested).",
+    )
+    parser.add_argument(
+        "--fp32",
+        action="store_true",
+        help="On CUDA, use float32 instead of bf16/fp16 (slower, sometimes more stable).",
+    )
+    parser.add_argument(
+        "--attn-implementation",
+        type=str,
+        default="sdpa",
+        help="transformers attention: sdpa (faster) or eager.",
+    )
     parser.add_argument("--episodes", type=int, default=24)
     parser.add_argument("--max-steps", type=int, default=12)
-    parser.add_argument("--max-new-tokens", type=int, default=128)
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=64,
+        help="Cap for generation; one JSON action usually needs <64 tokens. Lower = faster.",
+    )
     parser.add_argument("--learning-rate", type=float, default=1.0e-5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", type=str, default="artifacts/trl-neon-model")
