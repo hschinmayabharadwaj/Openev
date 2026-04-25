@@ -219,6 +219,155 @@ class NeonSyndicateEnvironment(OpenEnvEnvironment):
 			for task in self._tasks.values()
 		]
 
+	# ------------------------------------------------------------------
+	# Procedural task generator (RLVE upgrade path)
+	# ------------------------------------------------------------------
+
+	def generate_procedural_task(
+		self,
+		difficulty: int = 3,
+		seed: Optional[int] = None,
+	) -> TaskDefinition:
+		"""Synthesize a brand-new mission at the requested difficulty.
+
+		The five axes that scale with difficulty:
+
+		* number of required allies (1, 1, 2, 3, 3)
+		* number of required keywords in the extraction message (2, 2, 3, 3, 4)
+		* operation-code length / format
+		* initial threat level
+		* resource thresholds
+
+		This is the on-demand RLVE knob exposed at /lab and described in
+		``docs/walkthrough.md`` §6. Plug it into the TRL sampler to get
+		an unbounded curriculum.
+		"""
+		import random
+		rng = random.Random(seed)
+
+		level = max(1, min(5, int(difficulty)))
+
+		factions = ["ghostwire", "iron_vultures", "civic_shield", "black_orchid"]
+		sectors = ["docklands", "data_spire", "undergrid", "citadel_gate"]
+		keyword_pool = [
+			"ghostwire", "lantern", "midnight", "convoy", "broker", "extract",
+			"mirage", "blackout", "failsafe", "city grid", "recovered",
+			"dawnfall", "veil", "nighthaven", "sunfall",
+		]
+		op_pool_short  = ["OP-LANTERN", "OP-MIRAGE", "OP-VEIL", "OP-EMBER"]
+		op_pool_medium = ["OP-SUNFALL", "OP-NIGHTHAVEN", "OP-PHANTOM", "OP-AURORA"]
+		op_pool_long   = ["OP-DAWNFALL-23", "OP-FAILSAFE-9", "OP-PRISM-77", "OP-OBSIDIAN-44"]
+
+		ally_count_by_level = {1: 1, 2: 1, 3: 2, 4: 3, 5: 3}
+		kw_count_by_level   = {1: 2, 2: 2, 3: 3, 4: 3, 5: 4}
+		threat_by_level     = {1: "low", 2: "low", 3: "medium", 4: "high", 5: "critical"}
+
+		ally_count = ally_count_by_level[level]
+		kw_count   = kw_count_by_level[level]
+		op_pool    = op_pool_short if level <= 2 else (op_pool_medium if level <= 4 else op_pool_long)
+
+		base_thresholds = {"credits": 30, "intel": 30, "influence": 25, "energy": 25}
+		scale = 1.0 + 0.2 * (level - 1)
+
+		required_allies = rng.sample(factions, k=ally_count)
+		required_kws    = rng.sample(keyword_pool, k=kw_count)
+		op_code         = rng.choice(op_pool)
+		extraction_sec  = rng.choice(sectors)
+		initial_threat  = threat_by_level[level]
+
+		min_resources = {k: int(round(v * scale)) for k, v in base_thresholds.items()}
+
+		task_id = f"task_proc_lvl{level}_{rng.randint(1000, 9999)}"
+		mission_id = f"NS-PROC-{rng.randint(1000, 9999)}"
+		titles = {
+			1: "Relay Skim",
+			2: "Spire Intercept",
+			3: "Undergrid Bargain",
+			4: "Orchid Sabotage",
+			5: "Citywide Failsafe",
+		}
+		stake = (
+			"Procedurally generated mission. "
+			f"Coalition target: {', '.join(required_allies)}. "
+			f"Operation: {op_code}. Extraction: {extraction_sec}."
+		)
+
+		return TaskDefinition(
+			task_id=task_id,
+			difficulty=("easy" if level <= 2 else ("medium" if level <= 4 else "hard")),
+			title=titles[level],
+			objective=(
+				f"Gain {ally_count} alliance(s), deploy at {extraction_sec}, "
+				f"execute {op_code}, then secure extraction with the right keywords."
+			),
+			mission=MissionBrief(
+				mission_id=mission_id,
+				city="Neon Meridian",
+				client="Procedural Sampler",
+				stakes=stake,
+				initial_threat=initial_threat,
+				rumors=[
+					f"Rumor: {required_kws[0]} is the password for tonight.",
+					f"Rumor: extraction window opens near {extraction_sec}.",
+				],
+			),
+			target=TaskTarget(
+				required_allies=required_allies,
+				required_operation_code=op_code,
+				extraction_sector=extraction_sec,
+				min_resources=min_resources,
+				required_message_keywords=required_kws,
+			),
+		)
+
+	def register_procedural_task(self, task: TaskDefinition) -> None:
+		"""Register a generated task into the live env so /reset can use it."""
+		self._tasks[task.task_id] = task
+
+	def reward_design(self) -> Dict[str, object]:
+		"""Machine-readable summary of the env's reward design.
+
+		Used by /lab to render the 5-gate rubric and the penalty table
+		without re-implementing them in JS. Keeps the page in lockstep
+		with whatever ``_apply_action`` actually does.
+		"""
+		return {
+			"grader_weights": {
+				"alliance":   0.30,
+				"resources":  0.25,
+				"operation":  0.20,
+				"message":    0.15,
+				"extraction": 0.10,
+			},
+			"dense_weights": {
+				"alliances":       0.30,
+				"resources":       0.25,
+				"operation":       0.20,
+				"message_quality": 0.15,
+				"extraction":      0.10,
+			},
+			"penalties": [
+				{"trigger": "Identical action repeated back-to-back", "penalty": 0.08, "defends_against": "Spam-best-action exploit"},
+				{"trigger": "scout_sector without sector",            "penalty": 0.08, "defends_against": "Malformed-JSON spam"},
+				{"trigger": "negotiate_pact without faction",         "penalty": 0.08, "defends_against": "Malformed-JSON spam"},
+				{"trigger": "trade_resources without resource/amount","penalty": 0.08, "defends_against": "Malformed-JSON spam"},
+				{"trigger": "Insufficient influence to negotiate",    "penalty": 0.07, "defends_against": "Free-recruit attempt"},
+				{"trigger": "Insufficient energy to deploy",          "penalty": 0.08, "defends_against": "Free-deploy attempt"},
+				{"trigger": "run_operation before deploy",            "penalty": 0.10, "defends_against": "Skip the deploy gate"},
+				{"trigger": "run_operation with zero alliances",      "penalty": 0.10, "defends_against": "Skip the alliance gate"},
+				{"trigger": "run_operation with wrong code",          "penalty": 0.05, "defends_against": "Brute-forcing op codes"},
+				{"trigger": "secure_extraction without sector/message", "penalty": 0.10, "defends_against": "Empty-extraction shortcut"},
+				{"trigger": "noop while mission is live",             "penalty": 0.06, "defends_against": "Stalling to drain the clock"},
+				{"trigger": "Critical-threat passive play",           "penalty": 0.04, "defends_against": "Ignoring threat escalation"},
+			],
+			"action_types": [
+				"scout_sector", "negotiate_pact", "trade_resources",
+				"deploy_asset", "run_operation", "secure_extraction", "noop",
+			],
+			"max_steps": self.max_steps,
+			"factions": ["ghostwire", "iron_vultures", "civic_shield", "black_orchid"],
+		}
+
 	def reset(
 		self,
 		seed: Optional[int] = None,

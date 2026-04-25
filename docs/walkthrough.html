@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Syndicate · Walkthrough</title>
+<meta name="description" content="The complete walkthrough: every concept from the OpenEnv briefing (RLVR, RLVE, reward hacking, curriculum, GRPO, process supervision) mapped to the Neon Syndicate codebase." />
+<meta name="theme-color" content="#05060a" />
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23030308'/><text x='50' y='62' font-size='52' text-anchor='middle' fill='%2300f5ff' font-family='ui-sans-serif'>NS</text></svg>" />
+
+<style>
+:root {
+  --ink: #e6e9f2;
+  --ink-mute: #7a8298;
+  --ink-soft: #b3b9c9;
+  --bg: #07090f;
+  --panel: rgba(255,255,255,0.025);
+  --line: #1c2030;
+  --line-strong: #2a3046;
+  --neon-cyan: #00f5ff;
+  --neon-pink: #ff2d8a;
+  --neon-yellow: #ffd400;
+  --neon-green: #00ffae;
+  --neon-violet: #b78bff;
+  --code-bg: #0c0f17;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  scroll-behavior: smooth;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(900px 600px at 80% -10%, rgba(255,45,138,0.10), transparent 60%),
+    radial-gradient(900px 600px at -10% 30%, rgba(0,245,255,0.08), transparent 65%),
+    linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px) 0 0/64px 64px,
+    linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px) 0 0/64px 64px;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse at top, black 30%, transparent 80%);
+}
+header, .layout, footer { position: relative; z-index: 1; }
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(7,9,15,0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: 1280px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 22px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.06em; }
+.brand .logo {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+  color: #04050a; font-weight: 900; font-size: 13px;
+  box-shadow: 0 0 22px rgba(0,245,255,0.35);
+}
+.brand-tag {
+  font-size: 11px; color: var(--neon-cyan); font-weight: 600;
+  border: 1px solid rgba(0,245,255,0.3);
+  padding: 2px 8px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: 0.18em;
+}
+.spacer { flex: 1; }
+.tlink {
+  font-size: 12px; font-weight: 600;
+  color: var(--ink-soft); text-decoration: none;
+  padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px;
+  letter-spacing: 0.04em; transition: all .15s ease;
+}
+.tlink:hover { color: var(--ink); border-color: var(--neon-cyan); box-shadow: 0 0 22px rgba(0,245,255,0.25); }
+.tlink.primary { background: linear-gradient(135deg, rgba(0,245,255,0.18), rgba(255,45,138,0.18)); color: var(--ink); }
+
+.layout {
+  max-width: 1280px; margin: 0 auto;
+  padding: 22px;
+  display: grid; grid-template-columns: 280px 1fr; gap: 24px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .layout { grid-template-columns: 1fr; }
+  .toc { position: static !important; max-height: none !important; }
+}
+
+.toc {
+  position: sticky; top: 70px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 14px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.toc h4 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute); }
+.toc input {
+  width: 100%; padding: 8px 10px;
+  border-radius: 8px; border: 1px solid var(--line-strong);
+  background: rgba(0,0,0,0.4); color: var(--ink);
+  font: 13px/1.4 ui-sans-serif, system-ui;
+  margin-bottom: 8px;
+}
+.toc input:focus { outline: none; border-color: var(--neon-cyan); }
+.toc ul { list-style: none; margin: 0; padding: 0; }
+.toc li a {
+  display: block; padding: 5px 8px;
+  color: var(--ink-soft); text-decoration: none;
+  font-size: 13px; border-left: 2px solid transparent;
+  border-radius: 0 6px 6px 0;
+}
+.toc li a:hover { color: var(--ink); background: rgba(0,245,255,0.05); }
+.toc li a.active { color: var(--neon-cyan); border-left-color: var(--neon-cyan); background: rgba(0,245,255,0.08); }
+.toc li.h2 a { padding-left: 8px; font-weight: 600; }
+.toc li.h3 a { padding-left: 22px; font-size: 12px; color: var(--ink-mute); }
+
+.content {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 28px 36px;
+  min-height: 60vh;
+}
+@media (max-width: 700px) { .content { padding: 20px 18px; } }
+.content h1 {
+  margin: 0 0 4px; font-size: clamp(26px, 3vw, 36px);
+  background: linear-gradient(125deg, #fff 30%, var(--neon-cyan) 55%, var(--neon-pink) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-weight: 800; letter-spacing: -0.01em;
+}
+.content h2 {
+  margin: 28px 0 12px; padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 22px; color: var(--ink);
+}
+.content h3 { margin: 22px 0 10px; font-size: 16px; color: var(--neon-cyan); letter-spacing: 0.02em; }
+.content h4 { margin: 18px 0 6px; font-size: 14px; color: var(--neon-violet); }
+.content p { margin: 0 0 12px; color: var(--ink-soft); }
+.content strong { color: var(--ink); }
+.content em { color: var(--ink); }
+.content ul, .content ol { padding-left: 20px; color: var(--ink-soft); }
+.content li { margin-bottom: 4px; }
+.content a { color: var(--neon-cyan); text-decoration: none; border-bottom: 1px dashed rgba(0,245,255,0.3); }
+.content a:hover { border-bottom-style: solid; }
+.content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  padding: 1px 6px; border-radius: 5px;
+  color: var(--neon-cyan);
+}
+.content pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px; overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px; line-height: 1.55;
+  color: var(--ink-soft);
+}
+.content pre code { background: transparent; border: none; padding: 0; color: inherit; font-size: 12.5px; }
+.content blockquote {
+  margin: 12px 0;
+  border-left: 3px solid var(--neon-cyan);
+  background: rgba(0,245,255,0.05);
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+  color: var(--ink);
+}
+.content blockquote p { color: var(--ink); margin: 0 0 6px; }
+.content blockquote p:last-child { margin: 0; }
+.content table {
+  width: 100%; border-collapse: collapse; margin: 14px 0;
+  font-size: 13px;
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.content th, .content td {
+  text-align: left; padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.content th {
+  background: rgba(0,245,255,0.06);
+  color: var(--ink); font-weight: 600;
+  font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.content tr:last-child td { border-bottom: none; }
+.content hr { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
+
+/* Hero scorecard */
+.scorebanner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 16px 0 26px;
+}
+@media (max-width: 700px) { .scorebanner { grid-template-columns: 1fr 1fr; } }
+.sb-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+}
+.sb-card .lbl { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute); }
+.sb-card .grade { font-family: ui-monospace, monospace; font-size: 22px; color: var(--neon-cyan); margin-top: 2px; }
+.sb-card .bar { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.sb-card .bar > div { height: 100%; background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink)); transition: width .8s cubic-bezier(.2,.8,.2,1); }
+
+/* Hidden via search */
+.toc li.hide { display: none; }
+
+.skiplink { position: absolute; left: -9999px; }
+.skiplink:focus { left: 12px; top: 12px; padding: 8px 12px; background: var(--neon-cyan); color: #04050a; border-radius: 6px; z-index: 100; }
+</style>
+</head>
+
+<body>
+<a class="skiplink" href="#content">Skip to main content</a>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">
+      <span class="logo">NS</span>
+      <span>Neon Syndicate</span>
+      <span class="brand-tag">Walkthrough</span>
+    </span>
+    <span class="spacer"></span>
+    <a class="tlink" href="/judge">⌥ Judge view</a>
+    <a class="tlink" href="/lab">⌬ Lab</a>
+    <a class="tlink" href="/heist">🎮 Heist</a>
+    <a class="tlink" href="/play">📺 Watch</a>
+    <a class="tlink" href="/walkthrough.md">.md</a>
+    <a class="tlink primary" href="https://github.com/hschinmayabharadwaj/Openev" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="toc" aria-label="Table of contents">
+    <h4>Sections</h4>
+    <input type="search" id="tocSearch" placeholder="Filter…" aria-label="Filter table of contents" />
+    <ul id="tocList"><li><a href="#content">(loading…)</a></li></ul>
+  </aside>
+
+  <article class="content" id="content">
+    <div class="scorebanner" id="scorebanner"></div>
+    <div id="md"><p style="color: var(--ink-mute);">Loading walkthrough…</p></div>
+  </article>
+</div>
+
+<script>
+"use strict";
+
+const SCORECARD = [
+  { name: "Env innovation",        weight: 40, score: 9 },
+  { name: "Storytelling",          weight: 30, score: 9 },
+  { name: "Reward improvement",    weight: 20, score: 7 },
+  { name: "Reward & training",     weight: 10, score: 9 },
+];
+function renderScoreBanner() {
+  const box = document.getElementById("scorebanner");
+  box.innerHTML = "";
+  SCORECARD.forEach((row) => {
+    const card = document.createElement("div");
+    card.className = "sb-card";
+    card.innerHTML = `
+      <div class="lbl">${row.name} · ${row.weight}%</div>
+      <div class="grade">${row.score}/10</div>
+      <div class="bar"><div style="width:0%" data-target="${row.score * 10}"></div></div>
+    `;
+    box.appendChild(card);
+  });
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".sb-card .bar > div").forEach((el) => {
+      el.style.width = (el.dataset.target || 0) + "%";
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tiny markdown renderer (block-level + minimal inline). Self-contained, no deps.
+// Handles: headings, paragraphs, ul/ol, code fences (```), inline code (`),
+// bold (**), italic (*), links [t](u), tables (gfm), blockquotes (>), hr (---).
+// ---------------------------------------------------------------------------
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function escAttr(s) { return escHtml(s).replace(/"/g,"&quot;"); }
+function inline(s) {
+  // links
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => `<a href="${escAttr(u)}">${escHtml(t)}</a>`);
+  // code spans
+  s = s.replace(/`([^`]+)`/g, (m, c) => `<code>${escHtml(c)}</code>`);
+  // bold then italic
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
+  return s;
+}
+function slug(s) {
+  return String(s).toLowerCase().trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+function renderMarkdown(md) {
+  // Strip a leading "title block" (the H1 header) since we want it to render once
+  // and we keep that. Just process top to bottom.
+  const lines = md.split("\n");
+  let out = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code fence
+    if (/^```/.test(line)) {
+      const fence = line.slice(3).trim();
+      i++;
+      const buf = [];
+      while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
+      i++; // closing fence
+      out.push(`<pre><code data-lang="${escAttr(fence)}">${escHtml(buf.join("\n"))}</code></pre>`);
+      continue;
+    }
+
+    // Headings
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      const level = h[1].length;
+      const text = h[2].trim();
+      const id = slug(text);
+      out.push(`<h${level} id="${escAttr(id)}">${inline(text)}</h${level}>`);
+      i++; continue;
+    }
+
+    // HR
+    if (/^---\s*$/.test(line)) { out.push("<hr/>"); i++; continue; }
+
+    // Blockquote
+    if (/^>\s?/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) {
+        buf.push(lines[i].replace(/^>\s?/, ""));
+        i++;
+      }
+      out.push(`<blockquote>${renderMarkdown(buf.join("\n"))}</blockquote>`);
+      continue;
+    }
+
+    // Table
+    if (/\|/.test(line) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[i+1]) && /\|/.test(lines[i+1])) {
+      const headerCells = line.split("|").map(c => c.trim()).filter((c, k, arr) => !(k === 0 && c === "") && !(k === arr.length-1 && c === ""));
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /\|/.test(lines[i]) && lines[i].trim() !== "") {
+        const cells = lines[i].split("|").map(c => c.trim()).filter((c, k, arr) => !(k === 0 && c === "") && !(k === arr.length-1 && c === ""));
+        rows.push(cells);
+        i++;
+      }
+      const thead = "<thead><tr>" + headerCells.map(c => `<th>${inline(c)}</th>`).join("") + "</tr></thead>";
+      const tbody = "<tbody>" + rows.map(r => "<tr>" + r.map(c => `<td>${inline(c)}</td>`).join("") + "</tr>").join("") + "</tbody>";
+      out.push(`<table>${thead}${tbody}</table>`);
+      continue;
+    }
+
+    // Unordered list
+    if (/^\s*[-*+]\s+/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+        buf.push(lines[i].replace(/^\s*[-*+]\s+/, ""));
+        i++;
+      }
+      out.push("<ul>" + buf.map(b => `<li>${inline(b)}</li>`).join("") + "</ul>");
+      continue;
+    }
+
+    // Ordered list
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const buf = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        buf.push(lines[i].replace(/^\s*\d+\.\s+/, ""));
+        i++;
+      }
+      out.push("<ol>" + buf.map(b => `<li>${inline(b)}</li>`).join("") + "</ol>");
+      continue;
+    }
+
+    // Empty line
+    if (line.trim() === "") { i++; continue; }
+
+    // Paragraph (collect contiguous non-empty non-special lines)
+    const buf = [line];
+    i++;
+    while (i < lines.length) {
+      const l = lines[i];
+      if (l.trim() === "") break;
+      if (/^(#{1,6}\s|>\s|\s*[-*+]\s|\s*\d+\.\s|```|---\s*$)/.test(l)) break;
+      if (/\|/.test(l) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?[\s:|-]*$/.test(lines[i+1])) break;
+      buf.push(l);
+      i++;
+    }
+    out.push(`<p>${inline(buf.join(" "))}</p>`);
+  }
+
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// TOC builder
+// ---------------------------------------------------------------------------
+function buildToc() {
+  const ul = document.getElementById("tocList");
+  ul.innerHTML = "";
+  const headings = document.querySelectorAll("#md h2, #md h3");
+  headings.forEach((h) => {
+    const li = document.createElement("li");
+    li.className = h.tagName.toLowerCase();
+    const a = document.createElement("a");
+    a.href = "#" + h.id;
+    a.textContent = h.textContent.replace(/^[\d.]+\s*/, "");
+    li.appendChild(a);
+    ul.appendChild(li);
+  });
+}
+function wireTocSearch() {
+  const input = document.getElementById("tocSearch");
+  const items = () => Array.from(document.querySelectorAll("#tocList li"));
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    items().forEach((li) => {
+      const t = (li.textContent || "").toLowerCase();
+      li.classList.toggle("hide", q.length > 0 && !t.includes(q));
+    });
+  });
+}
+function wireScrollSpy() {
+  const linkMap = {};
+  document.querySelectorAll("#tocList a").forEach((a) => {
+    const id = a.getAttribute("href").slice(1);
+    linkMap[id] = a;
+  });
+  const heads = Array.from(document.querySelectorAll("#md h2, #md h3"));
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      const a = linkMap[e.target.id];
+      if (!a) return;
+      if (e.isIntersecting) {
+        document.querySelectorAll("#tocList a.active").forEach((x) => x.classList.remove("active"));
+        a.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-30% 0px -65% 0px", threshold: 0 });
+  heads.forEach((h) => obs.observe(h));
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+(async function boot() {
+  renderScoreBanner();
+  let md = "";
+  try {
+    const r = await fetch("/walkthrough.md");
+    md = await r.text();
+  } catch (_) {
+    md = "# Walkthrough\n\nUnable to load source markdown.";
+  }
+  document.getElementById("md").innerHTML = renderMarkdown(md);
+  buildToc();
+  wireTocSearch();
+  wireScrollSpy();
+})();
+</script>
+</body>
+</html>

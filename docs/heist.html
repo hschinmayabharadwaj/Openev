@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neon Syndicate · Heist Run</title>
+<meta name="description" content="A cyberpunk heist game. You are Vex on the ground, the trained PPO LLM is The Operator in your ear. Walk the city, hit waypoints, execute the mission." />
+<style>
+  :root {
+    --bg-0: #04060d;
+    --bg-1: #0a0d1a;
+    --bg-2: #11152a;
+    --line: #1e2547;
+    --ink: #e6ecff;
+    --ink-mute: #93a0c5;
+    --neon-cyan: #58f5ff;
+    --neon-pink: #ff5cdc;
+    --neon-green: #4dff9c;
+    --neon-yellow: #ffd84d;
+    --neon-red: #ff5b6b;
+    --neon-violet: #a47bff;
+    --neon-orange: #ffa84d;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(1100px 700px at 18% 10%, #0e1438 0%, var(--bg-0) 60%) no-repeat fixed,
+      radial-gradient(900px 600px at 88% 92%, #2a0e3a 0%, var(--bg-0) 60%) no-repeat fixed,
+      var(--bg-0);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    overflow-x: hidden;
+  }
+  body {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+  }
+  a { color: var(--neon-cyan); }
+  a:focus-visible, button:focus-visible, select:focus-visible, [role="tab"]:focus-visible {
+    outline: 2px solid var(--neon-cyan); outline-offset: 2px; border-radius: 6px;
+  }
+  button { font-family: inherit; }
+  .hidden { display: none !important; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+
+  header.topbar {
+    position: sticky; top: 0; z-index: 8;
+    backdrop-filter: blur(10px);
+    background: rgba(4, 6, 13, 0.7);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px;
+  }
+  .logo {
+    font-weight: 800; letter-spacing: 0.18em;
+    font-size: 13px; text-transform: uppercase;
+    background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .crumbs { color: var(--ink-mute); font-size: 12px; }
+  .crumbs strong { color: var(--ink); }
+  .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-1);
+    font-size: 12px; color: var(--ink-mute);
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green); }
+  .pill.warn .dot { background: var(--neon-yellow); box-shadow: 0 0 8px var(--neon-yellow); }
+  .pill.bad .dot { background: var(--neon-red); box-shadow: 0 0 8px var(--neon-red); }
+  .ghost-btn {
+    appearance: none; cursor: pointer;
+    padding: 8px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg-2);
+    color: var(--ink); font-weight: 600; font-size: 13px; letter-spacing: 0.04em;
+    text-decoration: none;
+  }
+  .ghost-btn:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+
+  main { max-width: 1480px; margin: 0 auto; padding: 16px; }
+
+  /* Welcome */
+  .welcome {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 22px;
+    align-items: stretch;
+  }
+  @media (max-width: 1100px) { .welcome { grid-template-columns: 1fr; } }
+  .card {
+    background: linear-gradient(180deg, rgba(20, 24, 50, 0.85), rgba(11, 14, 26, 0.85));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+  h1 { font-size: 30px; letter-spacing: 0.02em; margin: 0 0 4px; }
+  .lead { font-size: 15px; color: var(--ink-mute); margin: 6px 0 14px; }
+  h2 { font-size: 16px; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 8px; }
+  h3 { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute); margin: 14px 0 6px; }
+  .kbd {
+    display: inline-block; padding: 2px 7px; border-radius: 5px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    font-family: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 11px;
+  }
+  .start-btn {
+    appearance: none; border: 0; cursor: pointer;
+    padding: 16px 22px; border-radius: 12px;
+    font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #06121b; background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
+    box-shadow: 0 8px 30px rgba(255, 92, 220, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .start-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 40px rgba(255, 92, 220, 0.55); }
+  .start-btn:disabled { filter: grayscale(0.7); cursor: not-allowed; }
+
+  .mission-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+  .mission-list li {
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+    background: rgba(11, 14, 26, 0.6);
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+  }
+  .mission-list li.selected { border-color: var(--neon-pink); box-shadow: 0 0 0 1px var(--neon-pink) inset; }
+  .diff {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.1em;
+    text-transform: uppercase; font-weight: 700;
+  }
+  .diff.easy { background: rgba(77, 255, 156, 0.15); color: var(--neon-green); }
+  .diff.medium { background: rgba(255, 216, 77, 0.15); color: var(--neon-yellow); }
+  .diff.hard { background: rgba(255, 91, 107, 0.15); color: var(--neon-red); }
+  .mission-list li button {
+    border: 0; background: transparent; color: var(--ink); cursor: pointer;
+    text-align: left; padding: 0; font: inherit;
+  }
+  .mission-list li .obj { color: var(--ink-mute); font-size: 13px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+  .step {
+    border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .step b { color: var(--neon-pink); }
+
+  /* Game layout */
+  .game-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1100px) { .game-grid { grid-template-columns: 1fr; } }
+
+  .stage {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background:
+      radial-gradient(60% 60% at 50% 60%, rgba(88, 245, 255, 0.06), transparent 70%),
+      linear-gradient(180deg, #0a0e26 0%, #04060f 100%);
+    user-select: none;
+  }
+  .stage canvas { width: 100%; height: 100%; display: block; }
+
+  .stage .overlay {
+    position: absolute; inset: 0; pointer-events: none;
+    display: grid; grid-template-rows: auto 1fr auto; padding: 12px;
+  }
+  .briefing {
+    align-self: start; justify-self: start;
+    pointer-events: auto;
+    background: linear-gradient(180deg, rgba(13, 16, 38, 0.95), rgba(7, 9, 19, 0.95));
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px 12px; max-width: 60%;
+    font-size: 13px;
+  }
+  .briefing .obj-line { color: var(--ink-mute); font-size: 12px; margin-top: 2px; }
+
+  .badges { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; max-width: 50%; justify-content: flex-end; }
+  .badge {
+    font-size: 11px; padding: 4px 9px; border-radius: 999px;
+    background: rgba(7, 9, 19, 0.85); border: 1px solid var(--line); color: var(--ink-mute);
+  }
+  .badge.alive { color: var(--neon-cyan); border-color: var(--neon-cyan); }
+  .badge.warn { color: var(--neon-yellow); border-color: var(--neon-yellow); }
+
+  .resources-hud {
+    pointer-events: auto;
+    align-self: end; justify-self: stretch;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+  }
+  .res {
+    border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px;
+    background: rgba(7, 9, 19, 0.85);
+  }
+  .res .name { font-size: 10px; letter-spacing: 0.16em; color: var(--ink-mute); text-transform: uppercase; }
+  .res .val { font-weight: 700; font-size: 14px; }
+  .res .bar { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 4px; }
+  .res .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green)); transition: width 250ms ease; }
+  .res.short .bar > span { background: linear-gradient(90deg, var(--neon-yellow), var(--neon-red)); }
+
+  /* Comms */
+  .comms {
+    margin-top: 12px;
+    border: 1px solid rgba(164, 123, 255, 0.35);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(8, 10, 24, 0.95), rgba(5, 6, 13, 0.95));
+  }
+  .comms .head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .comms .head .signal {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--neon-violet); box-shadow: 0 0 8px var(--neon-violet);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.4); }
+  }
+  .comms .head .name { font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px; }
+  .comms .head .latency { color: var(--ink-mute); font-size: 11px; margin-left: auto; }
+  .comms .messages {
+    display: flex; flex-direction: column-reverse; gap: 8px;
+    max-height: 160px; overflow: auto;
+  }
+  .comms .messages::-webkit-scrollbar { width: 6px; }
+  .comms .messages::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .msg {
+    border-left: 2px solid var(--neon-cyan);
+    padding: 6px 10px;
+    background: rgba(88, 245, 255, 0.04);
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    animation: msgIn 220ms ease;
+  }
+  .msg.brief { border-color: var(--neon-violet); background: rgba(164, 123, 255, 0.05); }
+  .msg.warn  { border-color: var(--neon-yellow); background: rgba(255, 216, 77, 0.04); }
+  .msg.bad   { border-color: var(--neon-red); background: rgba(255, 91, 107, 0.04); }
+  .msg.good  { border-color: var(--neon-green); background: rgba(77, 255, 156, 0.04); }
+  .msg .who { font-weight: 700; color: var(--neon-cyan); margin-right: 6px; }
+  .msg.brief .who { color: var(--neon-violet); }
+  .msg.warn  .who { color: var(--neon-yellow); }
+  .msg.bad   .who { color: var(--neon-red); }
+  .msg.good  .who { color: var(--neon-green); }
+  @keyframes msgIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+  /* Dashboard */
+  .dash { display: grid; gap: 14px; }
+  .dash-card { padding: 14px 16px; }
+  .dash-card .title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .dash-card .title-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neon-violet); box-shadow: 0 0 6px var(--neon-violet); }
+
+  .reward-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 720px) { .reward-grid { grid-template-columns: 1fr; } }
+  .meter { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
+  .meter .name { font-size: 10px; color: var(--ink-mute); letter-spacing: 0.08em; text-transform: uppercase; }
+  .meter .val { font-weight: 800; font-size: 16px; }
+  .meter .bar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.06); margin-top: 6px; overflow: hidden; }
+  .meter .bar > span { display: block; height: 100%; transition: width 280ms ease; background: linear-gradient(90deg, var(--neon-violet), var(--neon-pink)); }
+
+  .gates { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .gate {
+    padding: 8px; border-radius: 10px; border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 10px; text-align: center; color: var(--ink-mute);
+    transition: all 280ms ease;
+  }
+  .gate.unlocked {
+    border-color: var(--neon-green); color: var(--neon-green);
+    background: rgba(77, 255, 156, 0.08);
+    box-shadow: 0 0 0 1px var(--neon-green) inset;
+  }
+  .gate b { display: block; font-size: 11px; color: inherit; }
+  .gate .icon { font-size: 16px; margin-bottom: 2px; }
+
+  .scroller { max-height: 200px; overflow: auto; padding-right: 4px; }
+  .scroller::-webkit-scrollbar { width: 6px; }
+  .scroller::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .turn {
+    border-left: 2px solid var(--neon-violet);
+    padding: 5px 9px; margin: 5px 0;
+    background: rgba(164, 123, 255, 0.05);
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+  }
+  .turn .reward { float: right; font-variant-numeric: tabular-nums; }
+  .turn .reward.pos { color: var(--neon-green); }
+  .turn .reward.neg { color: var(--neon-red); }
+  .turn .verb { color: var(--neon-cyan); font-weight: 700; }
+
+  /* Toolbar above stage */
+  .toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 12px;
+  }
+  .toolbar .grow { flex: 1; }
+
+  /* Tutorial overlay */
+  .tutorial {
+    position: absolute; inset: 0; z-index: 7;
+    background: rgba(2, 4, 12, 0.78);
+    backdrop-filter: blur(4px);
+    display: grid; place-items: center;
+    pointer-events: auto;
+  }
+  .tutorial .panel {
+    background: linear-gradient(180deg, rgba(13, 16, 38, 0.97), rgba(7, 9, 19, 0.97));
+    border: 1px solid rgba(255, 92, 220, 0.4);
+    border-radius: 14px;
+    padding: 18px 22px; max-width: 520px;
+  }
+  .tutorial h3 { color: var(--neon-pink); margin-top: 0; }
+  .tutorial ul { padding-left: 18px; margin: 8px 0; }
+  .tutorial li { margin: 4px 0; }
+  .tutorial .go {
+    margin-top: 10px;
+    appearance: none; cursor: pointer; border: 0;
+    padding: 10px 16px; border-radius: 10px;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green));
+    color: #06121b; font-weight: 700; letter-spacing: 0.06em;
+  }
+
+  /* Toast */
+  .toast {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(7, 9, 19, 0.95);
+    border: 1px solid var(--line);
+    color: var(--ink); padding: 8px 14px; border-radius: 10px;
+    font-size: 13px; pointer-events: none;
+    animation: toastIn 200ms ease;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+  /* End card */
+  .end-card { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; }
+  .end-card .verdict { font-size: 24px; font-weight: 800; letter-spacing: 0.04em; }
+  .end-card.win   .verdict { color: var(--neon-green); }
+  .end-card.lose  .verdict { color: var(--neon-red); }
+  .end-card.timeout .verdict { color: var(--neon-yellow); }
+
+  .footer { color: var(--ink-mute); font-size: 12px; padding: 28px 0 16px; text-align: center; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  select {
+    font: inherit; color: var(--ink);
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px;
+  }
+  label { font-size: 12px; color: var(--ink-mute); letter-spacing: 0.06em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<a class="sr-only" href="#main">Skip to main content</a>
+
+<header class="topbar" role="banner">
+  <span class="logo">Neon Syndicate · Heist Run</span>
+  <span class="crumbs">
+    you are <strong>Vex</strong> · the trained model is <strong>The Operator</strong> in your ear
+  </span>
+  <span class="spacer"></span>
+  <span id="trainedPill" class="pill warn"><span class="dot"></span><span id="trainedPillText">checking model…</span></span>
+  <a class="ghost-btn" href="/judge">⌬ Judge view</a>
+  <a class="ghost-btn" href="/lab">⌬ Lab</a>
+  <a class="ghost-btn" href="/walkthrough">⌬ Walkthrough</a>
+  <a class="ghost-btn" href="/play">Watch mode</a>
+  <a class="ghost-btn" href="/docs" target="_blank" rel="noopener">API</a>
+</header>
+
+<main id="main">
+  <!-- WELCOME -->
+  <section id="welcome" aria-labelledby="welcomeTitle">
+    <div class="welcome">
+      <div class="card">
+        <h1 id="welcomeTitle">You walk the city. The AI calls the plays.</h1>
+        <p class="lead">
+          A 0.5B-parameter Qwen 2.5 PPO model is your <b>Operator</b>. Every turn it
+          decides what to do — negotiate, scout, deploy, run the op, secure
+          extraction — and drops a glowing waypoint on Neon Meridian's map.
+          Your job: walk there with <span class="kbd">W A S D</span> and
+          <span class="kbd">E</span> to execute. The mission only succeeds if the
+          two of you cooperate inside the env's real reward function.
+        </p>
+
+        <h3 style="margin-top: 14px;">Pick a mission</h3>
+        <ul class="mission-list" id="missionList" role="listbox" aria-label="Missions"></ul>
+
+        <div class="row" style="margin-top: 14px;">
+          <button id="startBtn" class="start-btn">▶ Start the heist</button>
+          <label for="policySel" style="margin-left: 8px;">Operator</label>
+          <select id="policySel" aria-label="Choose the operator policy">
+            <option value="hybrid" selected>Hybrid (LLM + guardrails) ★ recommended</option>
+            <option value="trained">Trained PPO model (raw, may fail)</option>
+            <option value="heuristic">Heuristic baseline (always wins easy)</option>
+            <option value="random">Random (chaos)</option>
+          </select>
+        </div>
+        <p class="lead" style="margin-top: 10px;">
+          The trained checkpoint is partially trained, so raw mode often picks
+          moves the env will penalize (e.g. <code>run_operation</code> before
+          deploy). <b>Hybrid</b> keeps the LLM in the driver seat but rejects
+          actions that would burn turns; the dashboard shows every override.
+          Use <b>Heuristic</b> if you just want a clean win.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>How the heist works</h2>
+        <div class="grid-2" style="margin-top: 4px;">
+          <div class="step"><b>1. Comms.</b> The Operator (the trained LLM) speaks each turn. Its raw text and parsed action are visible.</div>
+          <div class="step"><b>2. Waypoint.</b> A neon ring + arrow appears on the relevant district. That's where you go.</div>
+          <div class="step"><b>3. Walk.</b> Use <span class="kbd">W A S D</span> or <span class="kbd">↑←↓→</span>. Vex glides through the iso city.</div>
+          <div class="step"><b>4. Execute.</b> When in range, press <span class="kbd">E</span>. The action commits to the env, VFX fire, the world reacts.</div>
+          <div class="step"><b>5. Adapt.</b> The Operator sees the new state and picks the next move. Repeat for up to 12 turns.</div>
+          <div class="step"><b>6. Extract.</b> Hit five mission gates and secure the extraction. Don't get timed out.</div>
+        </div>
+
+        <h3 style="margin-top: 14px;">Districts of Neon Meridian</h3>
+        <ul style="margin: 4px 0; padding-left: 18px; color: var(--ink-mute);">
+          <li><b style="color: var(--neon-cyan);">Docklands</b> — Iron Vultures' turf. Fast, loud.</li>
+          <li><b style="color: var(--neon-cyan);">Data Spire</b> — Civic Shield watches every channel.</li>
+          <li><b style="color: var(--neon-cyan);">Undergrid</b> — Ghostwire trades intel in the dark.</li>
+          <li><b style="color: var(--neon-cyan);">Citadel Gate</b> — Black Orchid moves through influence.</li>
+        </ul>
+        <h3 style="margin-top: 14px;">Accessibility</h3>
+        <p class="lead" style="margin: 0;">
+          Keyboard-first. No timed reflex tests. Reduced motion respected.
+          A spoken/screen-reader summary updates each turn. High-contrast neon
+          palette throughout.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" class="hidden" aria-labelledby="gameTitle">
+    <div class="toolbar" role="region" aria-label="Mission controls">
+      <button class="ghost-btn" id="backBtn">← Missions</button>
+      <button class="ghost-btn" id="restartBtn" title="Restart (R)">↻ Restart</button>
+      <span class="grow"></span>
+      <span id="liveStatusPill" class="pill"><span class="dot"></span><span id="liveStatusText">Briefing…</span></span>
+      <span id="turnPill" class="pill"><span class="dot"></span>turn <b id="turnValue" style="margin-left: 4px; color: var(--ink);">0/12</b></span>
+      <span id="cumPill" class="pill"><span class="dot"></span>Σ reward <b id="cumValue" style="margin-left: 4px; color: var(--ink);">0.000</b></span>
+      <span id="threatPill" class="pill"><span class="dot"></span>threat <b id="threatValue" style="margin-left: 4px; color: var(--ink);">—</b></span>
+    </div>
+
+    <div class="game-grid">
+      <div>
+        <div class="stage" id="stage" tabindex="0" aria-label="Heist play area">
+          <canvas id="worldCanvas" width="1280" height="800"></canvas>
+          <div class="overlay">
+            <div class="briefing card" id="briefingCard" aria-live="polite">
+              <h2 style="font-size: 14px; margin: 0; color: var(--neon-pink);" id="missionTitleEl">Mission</h2>
+              <div id="missionMetaEl" class="obj-line"></div>
+            </div>
+            <div></div>
+            <div class="resources-hud" id="resourcesHud" aria-label="Resources"></div>
+            <div class="badges">
+              <span class="badge" id="locationBadge">— district —</span>
+              <span class="badge" id="alliancesBadge">0 / — allies</span>
+            </div>
+          </div>
+
+          <div id="tutorialOverlay" class="tutorial">
+            <div class="panel">
+              <h3>How to play</h3>
+              <ul>
+                <li><span class="kbd">W A S D</span> or <span class="kbd">↑ ← ↓ →</span> — walk through the city</li>
+                <li><span class="kbd">E</span> or <span class="kbd">Space</span> — execute when you reach the waypoint</li>
+                <li><span class="kbd">R</span> — restart · <span class="kbd">Tab</span> — toggle screen-reader summary</li>
+              </ul>
+              <p style="color: var(--ink-mute); font-size: 13px;">
+                The Operator's voice (left dashboard) tells you what to do. Trust
+                it — or don't. It can be wrong, and you'll see why.
+              </p>
+              <button class="go" id="tutorialClose">Start the heist</button>
+            </div>
+          </div>
+
+          <div id="toast" class="toast hidden"></div>
+        </div>
+
+        <h2 id="gameTitle" class="sr-only">Heist play area</h2>
+        <p id="srSummary" class="sr-only" aria-live="polite"></p>
+
+        <!-- Operator comms -->
+        <section class="comms" aria-label="Operator comms">
+          <div class="head">
+            <span class="signal" aria-hidden="true"></span>
+            <span class="name">Operator · live</span>
+            <span class="latency" id="opLatency">— ms · native</span>
+          </div>
+          <div class="messages" id="commsLog" tabindex="0"></div>
+        </section>
+      </div>
+
+      <aside class="dash" aria-label="Heist dashboard">
+        <div class="card dash-card">
+          <div class="title-row">
+            <span class="dot" style="background: var(--neon-pink); box-shadow: 0 0 6px var(--neon-pink);"></span>
+            <h2 style="font-size: 14px; margin: 0;">Reward forensics</h2>
+            <span class="grow"></span>
+            <span class="badge" id="lastDeltaBadge">Δ 0.000</span>
+          </div>
+          <div class="reward-grid" id="rewardGrid"></div>
+          <h3 style="margin-top: 12px;">Reward over turns</h3>
+          <svg id="rewardChart" style="width: 100%; height: 120px;" viewBox="0 0 400 130" preserveAspectRatio="none" aria-label="Reward chart"></svg>
+        </div>
+
+        <div class="card dash-card">
+          <div class="title-row">
+            <span class="dot" style="background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green);"></span>
+            <h2 style="font-size: 14px; margin: 0;">Mission gates</h2>
+          </div>
+          <div class="gates" id="gates">
+            <div class="gate" data-key="alliance"><span class="icon">🤝</span><b>Alliance</b><span>Form pacts</span></div>
+            <div class="gate" data-key="resources"><span class="icon">⚡</span><b>Resources</b><span>Hit thresholds</span></div>
+            <div class="gate" data-key="deploy"><span class="icon">📍</span><b>Deploy</b><span>Asset placed</span></div>
+            <div class="gate" data-key="operation"><span class="icon">🛰️</span><b>Operation</b><span>Correct code</span></div>
+            <div class="gate" data-key="extraction"><span class="icon">🚁</span><b>Extraction</b><span>Clean exit</span></div>
+          </div>
+        </div>
+
+        <div class="card dash-card">
+          <div class="title-row">
+            <span class="dot"></span>
+            <h2 style="font-size: 14px; margin: 0;">Operator's mind</h2>
+            <span class="grow"></span>
+            <span class="badge" id="mindFallback">native</span>
+          </div>
+          <h3>Last raw thought</h3>
+          <pre id="mindRaw" style="margin: 0; padding: 8px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--line); border-radius: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; max-height: 110px; overflow: auto; white-space: pre-wrap; word-break: break-word; color: var(--ink-mute);">—</pre>
+          <h3>Parsed action</h3>
+          <pre id="mindParsed" style="margin: 0; padding: 8px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--line); border-radius: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; max-height: 70px; overflow: auto; color: var(--neon-green);">—</pre>
+          <p style="margin: 8px 0 0; font-size: 11px; color: var(--ink-mute);">
+            <b style="color: var(--ink);">native</b> = LLM action passed.
+            <b style="color: var(--neon-cyan);">guardrail</b> = LLM picked an env-illegal move; swapped to safe heuristic.
+            <b style="color: var(--neon-yellow);">fallback</b> = LLM output unparseable.
+          </p>
+        </div>
+
+        <div class="card dash-card">
+          <div class="title-row">
+            <span class="dot"></span>
+            <h2 style="font-size: 14px; margin: 0;">Turn log</h2>
+            <span class="grow"></span>
+            <span id="logSummary" class="badge">0 turns</span>
+          </div>
+          <div class="scroller" id="turnLog" tabindex="0" aria-label="Scrollable turn log"></div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="card hidden" id="endCard" style="margin-top: 14px;">
+      <div class="end-card">
+        <div class="verdict" id="endVerdict">Heist complete</div>
+        <div>
+          <div id="endSummary" style="color: var(--ink-mute);"></div>
+        </div>
+        <div class="row">
+          <button class="ghost-btn" id="playAgainBtn">↻ Play again</button>
+          <button class="ghost-btn" id="changeMissionBtn">← Change mission</button>
+          <a class="ghost-btn" href="/play">→ Watch the AI play</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footer">
+    Neon Syndicate is a partially observable, long-horizon strategy environment for OpenEnv.
+    The Operator is a 0.5B Qwen 2.5 fine-tuned with TRL PPO; the dashboard honestly flags
+    when its output can't be parsed and the heuristic takes over.
+  </p>
+</main>
+
+<script>
+"use strict";
+
+// =============================================================================
+// Static knowledge mirroring server/environment.py (so the UI can render gates,
+// faction homes and waypoint hints without an extra round-trip).
+// =============================================================================
+const TASK_TARGETS = {
+  task_easy_docklands_relay: {
+    title: "Docklands Relay Hijack",
+    required_allies: ["ghostwire"], required_op: "OP-LANTERN",
+    extraction_sector: "docklands",
+    min_resources: { credits: 30, intel: 35, influence: 20, energy: 20 },
+    keywords: ["window", "relay", "clean exit"],
+  },
+  task_easy_data_spire_broker: {
+    title: "Data Spire Broker Run",
+    required_allies: ["civic_shield"], required_op: "OP-PRISM",
+    extraction_sector: "data_spire",
+    min_resources: { credits: 25, intel: 40, influence: 30, energy: 15 },
+    keywords: ["broker", "keys", "exfil"],
+  },
+  task_medium_undergrid_blackout: {
+    title: "Undergrid Blackout Play",
+    required_allies: ["ghostwire", "iron_vultures"], required_op: "OP-NIGHTLOCK",
+    extraction_sector: "undergrid",
+    min_resources: { credits: 40, intel: 55, influence: 30, energy: 35 },
+    keywords: ["stabilized", "fallback", "undergrid"],
+  },
+  task_medium_citadel_convoy: {
+    title: "Citadel Convoy Diversion",
+    required_allies: ["black_orchid", "civic_shield"], required_op: "OP-HALO",
+    extraction_sector: "citadel_gate",
+    min_resources: { credits: 35, intel: 50, influence: 45, energy: 30 },
+    keywords: ["convoy", "handoff", "silent"],
+  },
+  task_hard_orchid_coup: {
+    title: "Orchid Coup Containment",
+    required_allies: ["ghostwire", "civic_shield", "black_orchid"], required_op: "OP-OBSIDIAN",
+    extraction_sector: "undergrid",
+    min_resources: { credits: 45, intel: 70, influence: 65, energy: 45 },
+    keywords: ["containment", "chain of command", "stabilized"],
+  },
+  task_hard_citywide_failsafe: {
+    title: "Citywide Failsafe Cascade",
+    required_allies: ["ghostwire", "iron_vultures", "civic_shield"], required_op: "OP-DAWNFALL",
+    extraction_sector: "data_spire",
+    min_resources: { credits: 50, intel: 80, influence: 60, energy: 55 },
+    keywords: ["failsafe", "recovered", "city grid"],
+  },
+};
+const SECTOR_LABELS = {
+  docklands: "Docklands", data_spire: "Data Spire",
+  undergrid: "Undergrid", citadel_gate: "Citadel Gate",
+};
+const FACTION_HOME = {
+  iron_vultures: "docklands",
+  civic_shield: "data_spire",
+  ghostwire: "undergrid",
+  black_orchid: "citadel_gate",
+};
+const FACTION_LABEL = {
+  ghostwire: "Ghostwire",
+  iron_vultures: "Iron Vultures",
+  civic_shield: "Civic Shield",
+  black_orchid: "Black Orchid",
+};
+const FACTION_COLOR = {
+  ghostwire: "#58f5ff",
+  iron_vultures: "#ff5b6b",
+  civic_shield: "#4dff9c",
+  black_orchid: "#a47bff",
+};
+const ACTION_VERBS = {
+  scout_sector: "Scout",
+  negotiate_pact: "Negotiate",
+  trade_resources: "Trade",
+  deploy_asset: "Deploy",
+  run_operation: "Run op",
+  secure_extraction: "Extract",
+  noop: "Skip",
+};
+const OPERATOR_VOICE = {
+  scout_sector: (a) => `Scout ${SECTOR_LABELS[a.sector] || "the sector"}. I need eyes.`,
+  negotiate_pact: (a) => `Open comms with ${FACTION_LABEL[a.faction] || a.faction}. Their home turf, you know the way.`,
+  trade_resources: (a) => `Hit a market — flip ${a.amount || "some"} for ${a.resource}.`,
+  deploy_asset: (a) => `Stage assets in ${SECTOR_LABELS[a.sector] || "position"}. Energy will bite.`,
+  run_operation: (a) => `Run ${a.operation_code || "the op"}. Don't stutter.`,
+  secure_extraction: (a) => `Extraction at ${SECTOR_LABELS[a.sector] || "the rendezvous"}. Send the call.`,
+  noop: () => `Hold position. Let the city breathe.`,
+};
+
+// =============================================================================
+// State
+// =============================================================================
+const state = {
+  tasks: [],
+  selectedTask: null,
+  policy: "hybrid",
+  observation: null,
+  task: null,
+  taskMeta: null,
+  trace: null,
+  pendingAction: null,
+  waypoint: null,
+  turn: 0,
+  cumulative: 0,
+  rewards: [],
+  fxList: [],
+  busy: false,
+  done: false,
+  trainedAvailable: null,
+  lastTime: 0,
+};
+const player = { x: 640, y: 460, vx: 0, vy: 0, dir: 0, speed: 280 };
+const keys = Object.create(null);
+let isoCenter = { x: 640, y: 410 };
+let canvasW = 1280, canvasH = 800;
+
+// =============================================================================
+// Boot
+// =============================================================================
+async function boot() {
+  await Promise.all([loadTasks(), loadAgentInfo()]);
+  hookControls();
+  installKeys();
+  requestAnimationFrame(tick);
+}
+
+async function loadTasks() {
+  try {
+    const resp = await fetch("/tasks");
+    const data = await resp.json();
+    state.tasks = data.tasks || [];
+  } catch {
+    state.tasks = Object.keys(TASK_TARGETS).map((id) => ({
+      task_id: id, title: TASK_TARGETS[id].title,
+      difficulty: id.includes("hard") ? "hard" : id.includes("medium") ? "medium" : "easy",
+      objective: "(offline)",
+    }));
+  }
+  renderMissionList();
+  if (state.tasks.length) selectTask(state.tasks[0].task_id);
+}
+
+async function loadAgentInfo() {
+  try {
+    const resp = await fetch("/agent/info");
+    const info = await resp.json();
+    state.trainedAvailable = !!(info.trained && info.trained.available);
+    const text = state.trainedAvailable
+      ? "Trained model loaded"
+      : (info.trained && info.trained.checkpoint_dir
+        ? "Trained model on disk · loads on first call"
+        : "Trained model unavailable · heuristic stand-in");
+    setTrainedPill(text, state.trainedAvailable ? "ok" : "warn");
+  } catch {
+    setTrainedPill("Agent endpoint unreachable", "bad");
+  }
+}
+
+function setTrainedPill(text, level) {
+  const pill = document.getElementById("trainedPill");
+  pill.classList.remove("warn", "bad");
+  if (level === "warn") pill.classList.add("warn");
+  if (level === "bad") pill.classList.add("bad");
+  document.getElementById("trainedPillText").textContent = text;
+}
+
+function renderMissionList() {
+  const ul = document.getElementById("missionList");
+  ul.innerHTML = "";
+  state.tasks.forEach((t, i) => {
+    const li = document.createElement("li");
+    li.dataset.taskId = t.task_id;
+    if (t.task_id === state.selectedTask) li.classList.add("selected");
+    li.innerHTML = `
+      <span class="diff ${t.difficulty}">${t.difficulty}</span>
+      <button type="button" aria-label="Select mission ${t.title}">
+        <div><b>${t.title}</b></div>
+        <div class="obj">${t.objective || ""}</div>
+      </button>
+      <span class="kbd">${i + 1}</span>
+    `;
+    li.querySelector("button").addEventListener("click", () => selectTask(t.task_id));
+    ul.appendChild(li);
+  });
+}
+
+function selectTask(taskId) {
+  state.selectedTask = taskId;
+  document.querySelectorAll("#missionList li").forEach((li) => {
+    li.classList.toggle("selected", li.dataset.taskId === taskId);
+  });
+}
+
+function hookControls() {
+  document.getElementById("startBtn").addEventListener("click", startHeist);
+  document.getElementById("backBtn").addEventListener("click", goBack);
+  document.getElementById("restartBtn").addEventListener("click", () => startHeist());
+  document.getElementById("playAgainBtn").addEventListener("click", () => startHeist());
+  document.getElementById("changeMissionBtn").addEventListener("click", goBack);
+  document.getElementById("policySel").addEventListener("change", (e) => {
+    state.policy = e.target.value;
+  });
+  document.getElementById("tutorialClose").addEventListener("click", () => {
+    document.getElementById("tutorialOverlay").classList.add("hidden");
+    document.getElementById("stage").focus();
+  });
+}
+
+function installKeys() {
+  document.addEventListener("keydown", (e) => {
+    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "BUTTON")) return;
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") { keys.up = true; e.preventDefault(); }
+    if (k === "s" || k === "arrowdown") { keys.down = true; e.preventDefault(); }
+    if (k === "a" || k === "arrowleft") { keys.left = true; e.preventDefault(); }
+    if (k === "d" || k === "arrowright") { keys.right = true; e.preventDefault(); }
+    if (k === "e" || k === " " || k === "spacebar") {
+      tryInteract();
+      e.preventDefault();
+    }
+    if (k === "r") {
+      if (!document.getElementById("game").classList.contains("hidden")) {
+        startHeist(); e.preventDefault();
+      }
+    }
+    const idx = parseInt(e.key, 10);
+    if (!isNaN(idx) && idx >= 1 && idx <= state.tasks.length) {
+      selectTask(state.tasks[idx - 1].task_id);
+    }
+  });
+  document.addEventListener("keyup", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "w" || k === "arrowup") keys.up = false;
+    if (k === "s" || k === "arrowdown") keys.down = false;
+    if (k === "a" || k === "arrowleft") keys.left = false;
+    if (k === "d" || k === "arrowright") keys.right = false;
+  });
+}
+
+// =============================================================================
+// Heist lifecycle
+// =============================================================================
+async function startHeist() {
+  if (!state.selectedTask) return;
+  resetHeistUI();
+
+  const task = state.tasks.find((t) => t.task_id === state.selectedTask) || {};
+  state.task = task;
+  state.taskMeta = TASK_TARGETS[state.selectedTask] || {};
+
+  document.getElementById("welcome").classList.add("hidden");
+  document.getElementById("game").classList.remove("hidden");
+  document.getElementById("missionTitleEl").textContent = task.title || state.taskMeta.title || state.selectedTask;
+  document.getElementById("missionMetaEl").textContent = task.objective || "";
+
+  setLiveStatus("Connecting to Operator…", "warn");
+  try {
+    const r = await fetch("/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task_id: state.selectedTask }),
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`HTTP ${r.status}: ${detail.slice(0, 200)}`);
+    }
+    const data = await r.json();
+    state.observation = data.observation;
+    state.turn = state.observation.step_count;
+    addComm("brief", "Briefing", `${task.title || state.selectedTask}. ${state.observation.objective || task.objective || ""}`);
+    refreshHud();
+    refreshGates();
+    placePlayerAtSector(currentDistrictGuess());
+    await requestNextOperatorPlay();
+  } catch (e) {
+    setLiveStatus("Reset failed · API not reachable", "bad");
+    if (location.protocol === "file:") {
+      addComm("bad", "System",
+        "This page was opened from disk (file://) so it can't talk to the API. Start the FastAPI server and open http://localhost:7860/heist instead.");
+    } else {
+      addComm("bad", "System",
+        `The API at ${location.origin}/reset is not responding (${e.message || e}). Make sure the FastAPI server is running on this origin. Locally: \`uvicorn server.app:app --host 0.0.0.0 --port 7860\` then open ${location.origin.replace(/:\d+/, ":7860")}/heist`);
+    }
+    addComm("warn", "System",
+      "Quick check: does http://localhost:7860/health return {\"status\":\"ok\"}? If not, the server isn't running.");
+  }
+}
+
+function resetHeistUI() {
+  state.observation = null;
+  state.trace = null;
+  state.pendingAction = null;
+  state.waypoint = null;
+  state.turn = 0;
+  state.cumulative = 0;
+  state.rewards = [];
+  state.fxList = [];
+  state.busy = false;
+  state.done = false;
+  document.getElementById("turnLog").innerHTML = "";
+  document.getElementById("commsLog").innerHTML = "";
+  document.getElementById("rewardGrid").innerHTML = "";
+  document.getElementById("rewardChart").innerHTML = "";
+  document.getElementById("endCard").classList.add("hidden");
+  document.querySelectorAll(".gate").forEach((g) => g.classList.remove("unlocked"));
+  document.getElementById("turnValue").textContent = "0/12";
+  document.getElementById("cumValue").textContent = "0.000";
+  document.getElementById("threatValue").textContent = "—";
+  document.getElementById("lastDeltaBadge").textContent = "Δ 0.000";
+  document.getElementById("mindRaw").textContent = "—";
+  document.getElementById("mindParsed").textContent = "—";
+  document.getElementById("mindFallback").textContent = "native";
+  document.getElementById("mindFallback").style.color = "var(--ink-mute)";
+  document.getElementById("opLatency").textContent = "— ms · native";
+  document.getElementById("logSummary").textContent = "0 turns";
+  document.getElementById("toast").classList.add("hidden");
+  // tutorial only on first heist
+  if (!sessionStorage.getItem("heist_tutorial_done")) {
+    document.getElementById("tutorialOverlay").classList.remove("hidden");
+    sessionStorage.setItem("heist_tutorial_done", "1");
+  } else {
+    document.getElementById("tutorialOverlay").classList.add("hidden");
+  }
+}
+
+function goBack() {
+  state.done = true;
+  state.waypoint = null;
+  document.getElementById("game").classList.add("hidden");
+  document.getElementById("welcome").classList.remove("hidden");
+}
+
+async function requestNextOperatorPlay() {
+  if (state.done || !state.observation) return;
+  state.busy = true;
+  setLiveStatus("Operator is thinking…", "warn");
+  try {
+    const r = await fetch("/agent/act", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ policy: state.policy, observation: state.observation }),
+    });
+    const trace = await r.json();
+    state.trace = trace;
+    state.pendingAction = trace.action || { action_type: "noop" };
+    let label = "native";
+    let labelColor = "var(--ink-mute)";
+    if (trace.fallback_used) { label = "fallback"; labelColor = "var(--neon-yellow)"; }
+    else if (trace.guardrail_used) { label = "guardrail"; labelColor = "var(--neon-cyan)"; }
+    document.getElementById("opLatency").textContent = `${trace.latency_ms ?? 0} ms · ${label}`;
+    let rawText = (trace.raw_text || "(no raw text — heuristic)").trim() || "(empty)";
+    if (trace.guardrail_used && trace.proposed_action) {
+      rawText += `\n\n[guardrail rejected] LLM proposed: ${JSON.stringify(trace.proposed_action)}`;
+      if (trace.notes && trace.notes.length) rawText += `\n[reason] ${trace.notes.join(" · ")}`;
+    }
+    document.getElementById("mindRaw").textContent = rawText;
+    document.getElementById("mindParsed").textContent = JSON.stringify(state.pendingAction, null, 2);
+    document.getElementById("mindFallback").textContent = label;
+    document.getElementById("mindFallback").style.color = labelColor;
+    state.waypoint = waypointFor(state.pendingAction);
+    speakOperatorOrder(state.pendingAction, trace);
+    setLiveStatus("Walk to the waypoint and press E", "ok");
+    announceSrSummary();
+  } catch (e) {
+    setLiveStatus("Operator unreachable", "bad");
+    addComm("bad", "System", "Could not reach /agent/act.");
+  } finally {
+    state.busy = false;
+  }
+}
+
+async function tryInteract() {
+  if (state.busy || state.done || !state.pendingAction || !state.waypoint) return;
+  const dx = state.waypoint.x - player.x;
+  const dy = state.waypoint.y - player.y;
+  const d = Math.hypot(dx, dy);
+  if (d > state.waypoint.radius + 8) {
+    showToast(`Get closer (${Math.round(d)} px). Press E inside the ring.`);
+    return;
+  }
+  state.busy = true;
+  setLiveStatus("Executing…", "warn");
+  spawnFx(state.waypoint.x, state.waypoint.y, state.pendingAction.action_type);
+  try {
+    const r = await fetch("/step", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state.pendingAction),
+    });
+    if (!r.ok) {
+      const detail = await r.text();
+      addComm("bad", "System", `env rejected the action: ${detail}`);
+      // Even on rejection, ask for a new plan.
+      state.pendingAction = null;
+      state.waypoint = null;
+      state.busy = false;
+      await requestNextOperatorPlay();
+      return;
+    }
+    const stepResp = await r.json();
+    state.observation = stepResp.observation;
+    state.turn = state.observation.step_count;
+    state.cumulative += stepResp.reward.score;
+    state.rewards.push({
+      turn: state.turn - 1,
+      score: stepResp.reward.score,
+      components: stepResp.reward.components || {},
+      cumulative: state.cumulative,
+      info: stepResp.info || {},
+    });
+    document.getElementById("turnValue").textContent = `${state.turn}/${state.observation.max_steps || 12}`;
+    document.getElementById("cumValue").textContent = state.cumulative.toFixed(3);
+    document.getElementById("threatValue").textContent = state.observation.known_threat || "—";
+    document.getElementById("lastDeltaBadge").textContent =
+      `Δ ${stepResp.reward.score >= 0 ? "+" : ""}${stepResp.reward.score.toFixed(3)}`;
+    appendTurn(state.pendingAction, stepResp);
+    refreshHud();
+    refreshGates(stepResp.info);
+    refreshComponents(stepResp.reward.components || {});
+    refreshChart();
+    speakReaction(stepResp);
+    state.pendingAction = null;
+    state.waypoint = null;
+    if (stepResp.done) {
+      finishHeist(stepResp);
+      return;
+    }
+    state.busy = false;
+    await requestNextOperatorPlay();
+  } catch (e) {
+    setLiveStatus("Step failed", "bad");
+    addComm("bad", "System", `Step failed: ${e.message || e}`);
+    state.busy = false;
+  }
+}
+
+function finishHeist(stepResp) {
+  state.done = true;
+  state.busy = false;
+  state.waypoint = null;
+  const info = stepResp.info || {};
+  const success = !!info.success;
+  const reason = info.done_reason || (success ? "resolved" : "ended");
+  setLiveStatus(success ? "Heist complete · clean exit" : "Heist ended", success ? "ok" : "bad");
+  const card = document.getElementById("endCard");
+  card.classList.remove("hidden", "win", "lose", "timeout");
+  let cls = "lose"; let verdict = "Heist failed";
+  if (success) { cls = "win"; verdict = "Heist complete"; }
+  else if (reason === "max_steps" || (info.max_steps_reached === true)) { cls = "timeout"; verdict = "Out of turns"; }
+  card.classList.add(cls);
+  document.getElementById("endVerdict").textContent = verdict;
+  document.getElementById("endSummary").textContent =
+    `Final task score ${(info.task_score || 0).toFixed(3)} · cumulative reward ${state.cumulative.toFixed(3)} · ${state.turn} turns`;
+  addComm(success ? "good" : "bad", "Operator",
+    success ? "Coalition objective achieved. We're ghosts." : "Job didn't land. We'll regroup.");
+}
+
+// =============================================================================
+// Comms voice + screen-reader summary
+// =============================================================================
+function speakOperatorOrder(action, trace) {
+  const base = OPERATOR_VOICE[action.action_type] ? OPERATOR_VOICE[action.action_type](action) : `Do ${action.action_type}.`;
+  const fallbackUsed = !!(trace && trace.fallback_used);
+  const guardrailUsed = !!(trace && trace.guardrail_used);
+  let tag = "";
+  let cls = "";
+  if (fallbackUsed) { tag = " (heuristic fallback — model was unparseable)"; cls = "warn"; }
+  else if (guardrailUsed) {
+    cls = "warn";
+    const proposed = trace.proposed_action ? trace.proposed_action.action_type : "?";
+    tag = ` (guardrail · LLM said ${proposed}, swapped — env would penalize)`;
+  }
+  addComm(cls, "Operator", base + tag);
+}
+
+function speakReaction(stepResp) {
+  const reason = stepResp.reward.reason || "";
+  const r = stepResp.reward.score;
+  const tone = r >= 0.05 ? "good" : r <= -0.05 ? "bad" : "";
+  if (reason) addComm(tone, "Operator", reason);
+}
+
+function addComm(tone, who, text) {
+  const log = document.getElementById("commsLog");
+  const div = document.createElement("div");
+  div.className = "msg " + (tone || "");
+  div.innerHTML = `<span class="who">${escapeHtml(who)}:</span>${escapeHtml(text)}`;
+  log.prepend(div);
+  while (log.children.length > 12) log.removeChild(log.lastChild);
+}
+
+function announceSrSummary() {
+  const a = state.pendingAction || {};
+  const wp = state.waypoint;
+  const where = wp ? wp.label : "(no waypoint)";
+  const hint = OPERATOR_VOICE[a.action_type] ? OPERATOR_VOICE[a.action_type](a) : a.action_type || "wait";
+  const turnText = `Turn ${state.turn + 1} of ${state.observation?.max_steps || 12}.`;
+  document.getElementById("srSummary").textContent =
+    `${turnText} Operator says: ${hint}. Walk to ${where} and press E.`;
+}
+
+function showToast(text, ms = 1500) {
+  const el = document.getElementById("toast");
+  el.textContent = text;
+  el.classList.remove("hidden");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => el.classList.add("hidden"), ms);
+}
+
+function setLiveStatus(text, level) {
+  const pill = document.getElementById("liveStatusPill");
+  pill.classList.remove("warn", "bad");
+  if (level === "warn") pill.classList.add("warn");
+  if (level === "bad") pill.classList.add("bad");
+  document.getElementById("liveStatusText").textContent = text;
+}
+
+// =============================================================================
+// Dashboard rendering
+// =============================================================================
+function refreshHud() {
+  const o = state.observation;
+  if (!o) return;
+  const target = state.taskMeta || {};
+  const need = target.min_resources || {};
+  const hud = document.getElementById("resourcesHud");
+  hud.innerHTML = "";
+  ["credits", "intel", "influence", "energy"].forEach((k) => {
+    const have = (o.resources || {})[k] || 0;
+    const want = need[k] || 1;
+    const pct = Math.max(0, Math.min(100, (have / want) * 100));
+    const short = have < (need[k] || 0);
+    const div = document.createElement("div");
+    div.className = "res" + (short ? " short" : "");
+    div.innerHTML = `
+      <div class="name">${k}</div>
+      <div class="val">${have}<span style="color:var(--ink-mute);font-size:11px;"> / ${need[k] || "—"}</span></div>
+      <div class="bar"><span style="width:${pct}%"></span></div>
+    `;
+    hud.appendChild(div);
+  });
+  document.getElementById("locationBadge").textContent = currentDistrictGuess()
+    ? SECTOR_LABELS[currentDistrictGuess()] : "city center";
+  const allyTotal = (target.required_allies || []).length;
+  const allyHave = (o.alliances || []).filter((a) => (target.required_allies || []).includes(a)).length;
+  document.getElementById("alliancesBadge").textContent = `${allyHave} / ${allyTotal} allies`;
+  document.getElementById("threatValue").textContent = o.known_threat || "—";
+}
+
+function refreshGates(info) {
+  const o = state.observation;
+  if (!o) return;
+  const target = state.taskMeta || {};
+  const allies = o.alliances || [];
+  const allianceOk = (target.required_allies || []).every((a) => allies.includes(a));
+  const need = target.min_resources || {};
+  const have = o.resources || {};
+  const resourcesOk = Object.entries(need).every(([k, v]) => (have[k] || 0) >= v);
+  const deployOk = !!o.operation_ready;
+  const operationOk = !!o.operation_executed;
+  const extractionOk = info && info.success;
+  setGate("alliance", allianceOk);
+  setGate("resources", resourcesOk);
+  setGate("deploy", deployOk);
+  setGate("operation", operationOk);
+  setGate("extraction", !!extractionOk);
+}
+function setGate(k, on) {
+  const el = document.querySelector(`.gate[data-key="${k}"]`);
+  if (el) el.classList.toggle("unlocked", !!on);
+}
+
+function refreshComponents(components) {
+  const grid = document.getElementById("rewardGrid");
+  grid.innerHTML = "";
+  const order = ["alliances", "resources", "operation", "message_quality", "extraction"];
+  const maxes = { alliances: 0.30, resources: 0.25, operation: 0.20, message_quality: 0.15, extraction: 0.10 };
+  order.forEach((key) => {
+    const v = components[key] || 0;
+    const max = maxes[key] || 0.2;
+    const pct = Math.max(0, Math.min(100, (v / max) * 100));
+    const div = document.createElement("div");
+    div.className = "meter";
+    div.innerHTML = `
+      <div class="name">${key.replace("_", " ")}</div>
+      <div class="val">${v.toFixed(3)} <span style="color: var(--ink-mute); font-size: 11px;">/ ${max.toFixed(2)}</span></div>
+      <div class="bar"><span style="width:${pct}%"></span></div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function refreshChart() {
+  const svg = document.getElementById("rewardChart");
+  const W = 400, H = 130, P = 6;
+  const turns = state.rewards;
+  if (!turns.length) { svg.innerHTML = ""; return; }
+  const maxT = Math.max(12, turns.length);
+  const cums = turns.map((r) => r.cumulative);
+  const maxC = Math.max(0.1, Math.max(...cums));
+  const xFor = (i) => P + (i / (maxT - 1)) * (W - 2 * P);
+  const yFor = (v) => H - P - (v / maxC) * (H - 2 * P);
+  let cumPath = `M ${xFor(0)} ${yFor(turns[0].cumulative)}`;
+  turns.forEach((r, i) => { if (i === 0) return; cumPath += ` L ${xFor(i)} ${yFor(r.cumulative)}`; });
+  const bars = turns.map((r, i) => {
+    const x = xFor(i) - 4;
+    const yTop = yFor(Math.max(r.score, 0));
+    const yBot = yFor(0);
+    const h = Math.max(1, yBot - yTop);
+    const fill = r.score >= 0 ? "var(--neon-cyan)" : "var(--neon-red)";
+    return `<rect x="${x}" y="${yTop}" width="8" height="${h}" fill="${fill}" opacity="0.6"/>`;
+  }).join("");
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="cumFill" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="#a47bff" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="#a47bff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${bars}
+    <path d="${cumPath} L ${xFor(turns.length - 1)} ${H - P} L ${xFor(0)} ${H - P} Z" fill="url(#cumFill)"/>
+    <path d="${cumPath}" fill="none" stroke="#a47bff" stroke-width="2"/>
+  `;
+}
+
+function appendTurn(action, stepResp) {
+  const log = document.getElementById("turnLog");
+  const a = action || {};
+  const verb = ACTION_VERBS[a.action_type] || a.action_type || "—";
+  const argParts = [];
+  if (a.faction) argParts.push(FACTION_LABEL[a.faction] || a.faction);
+  if (a.sector) argParts.push(SECTOR_LABELS[a.sector] || a.sector);
+  if (a.resource) argParts.push(`${a.amount || ""} ${a.resource}`.trim());
+  if (a.operation_code) argParts.push(a.operation_code);
+  const args = argParts.length ? `· ${argParts.join(" / ")}` : "";
+  const r = stepResp.reward.score;
+  const cls = r >= 0.05 ? "pos" : r <= -0.05 ? "neg" : "";
+  const wrap = document.createElement("div");
+  wrap.className = "turn";
+  wrap.innerHTML = `
+    <span class="reward ${cls}">${r >= 0 ? "+" : ""}${r.toFixed(3)}</span>
+    <div><span class="verb">${verb}</span> <span>${escapeHtml(args)}</span></div>
+    <div style="color: var(--ink-mute); font-size: 11px;">turn ${state.turn} · ${escapeHtml(stepResp.reward.reason || "")}</div>
+  `;
+  log.prepend(wrap);
+  document.getElementById("logSummary").textContent = `${state.rewards.length} turns`;
+}
+
+// =============================================================================
+// Waypointing — maps an LLM action to a screen position the player walks to
+// =============================================================================
+function waypointFor(action) {
+  if (!action || !action.action_type) return null;
+  const positions = sectorPositions();
+  let sector = null;
+  let label = "";
+  switch (action.action_type) {
+    case "scout_sector":
+      sector = action.sector;
+      label = `Scout · ${SECTOR_LABELS[sector] || "?"}`;
+      break;
+    case "negotiate_pact":
+      sector = FACTION_HOME[action.faction];
+      label = `Negotiate · ${FACTION_LABEL[action.faction] || "?"}`;
+      break;
+    case "deploy_asset":
+      sector = action.sector;
+      label = `Deploy · ${SECTOR_LABELS[sector] || "?"}`;
+      break;
+    case "run_operation":
+      sector = state.observation && state.observation.deployed_sector;
+      if (!sector) sector = action.sector || "undergrid";
+      label = `Run ${action.operation_code || "op"}`;
+      break;
+    case "secure_extraction":
+      sector = action.sector || (state.taskMeta || {}).extraction_sector;
+      label = `Extract · ${SECTOR_LABELS[sector] || "?"}`;
+      break;
+    case "trade_resources":
+      sector = currentDistrictGuess() || "undergrid";
+      label = `Trade ${action.resource || ""}`;
+      break;
+    case "noop":
+    default:
+      return { x: player.x, y: player.y - 50, radius: 28, label: "Hold position", color: "#ffd84d", hint: "Hold (E to confirm skip)" };
+  }
+  if (!sector || !positions[sector]) return null;
+  const p = positions[sector];
+  return {
+    x: p.x, y: p.y - 14,
+    radius: 60,
+    label,
+    color: action.action_type === "secure_extraction" ? "#4dff9c"
+         : action.action_type === "negotiate_pact" ? (FACTION_COLOR[action.faction] || "#a47bff")
+         : "#58f5ff",
+    hint: `${label} — press E`,
+  };
+}
+
+function sectorPositions() {
+  const tile = 220;
+  return {
+    docklands:    isoToScreen(-1, -1, isoCenter, tile),
+    data_spire:   isoToScreen( 1, -1, isoCenter, tile),
+    undergrid:    isoToScreen(-1,  1, isoCenter, tile),
+    citadel_gate: isoToScreen( 1,  1, isoCenter, tile),
+  };
+}
+function isoToScreen(ix, iy, center, tile) {
+  return {
+    x: center.x + (ix - iy) * (tile * 0.55),
+    y: center.y + (ix + iy) * (tile * 0.30),
+  };
+}
+
+function currentDistrictGuess() {
+  const positions = sectorPositions();
+  let best = null, bestD = Infinity;
+  for (const k of Object.keys(positions)) {
+    const p = positions[k];
+    const d = Math.hypot(player.x - p.x, player.y - p.y);
+    if (d < bestD) { best = k; bestD = d; }
+  }
+  return best;
+}
+
+function placePlayerAtSector(sector) {
+  const p = sectorPositions()[sector];
+  if (!p) return;
+  player.x = p.x;
+  player.y = p.y + 80;
+}
+
+// =============================================================================
+// Game loop & rendering
+// =============================================================================
+function tick(now) {
+  const dt = Math.min(0.05, ((state.lastTime ? now - state.lastTime : 16) / 1000));
+  state.lastTime = now;
+  if (!document.getElementById("game").classList.contains("hidden")) {
+    update(dt);
+    draw();
+  }
+  requestAnimationFrame(tick);
+}
+
+function update(dt) {
+  if (state.done) { player.vx *= 0.85; player.vy *= 0.85; }
+  else if (!document.getElementById("tutorialOverlay").classList.contains("hidden")) {
+    player.vx = 0; player.vy = 0;
+  } else {
+    let ax = 0, ay = 0;
+    if (keys.up) ay -= 1;
+    if (keys.down) ay += 1;
+    if (keys.left) ax -= 1;
+    if (keys.right) ax += 1;
+    if (ax !== 0 || ay !== 0) {
+      const n = Math.hypot(ax, ay);
+      ax /= n; ay /= n;
+      player.dir = Math.atan2(ay, ax);
+    }
+    player.vx = ax * player.speed;
+    player.vy = ay * player.speed;
+  }
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+  player.x = Math.max(40, Math.min(canvasW - 40, player.x));
+  player.y = Math.max(40, Math.min(canvasH - 40, player.y));
+  // FX timers
+  state.fxList = state.fxList.filter((fx) => {
+    fx.t += dt;
+    return fx.t < fx.duration;
+  });
+}
+
+function draw() {
+  const canvas = document.getElementById("worldCanvas");
+  const ctx = canvas.getContext("2d");
+  canvasW = canvas.width; canvasH = canvas.height;
+  isoCenter = { x: canvasW / 2, y: canvasH / 2 - 30 };
+
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  drawBackground(ctx);
+  drawCity(ctx);
+  drawNodes(ctx);
+  drawWaypoint(ctx);
+  drawFx(ctx);
+  drawPlayer(ctx);
+  drawAtmosphere(ctx);
+}
+
+function drawBackground(ctx) {
+  // animated faint grid
+  ctx.save();
+  ctx.strokeStyle = "rgba(88, 245, 255, 0.05)";
+  ctx.lineWidth = 1;
+  const t = (performance.now() / 60) % 80;
+  for (let x = -t; x < canvasW; x += 80) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvasH); ctx.stroke();
+  }
+  for (let y = -t; y < canvasH; y += 80) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvasW, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCity(ctx) {
+  const positions = sectorPositions();
+  const order = ["data_spire", "docklands", "citadel_gate", "undergrid"];
+  order.forEach((s) => {
+    const p = positions[s];
+    drawSector(ctx, p.x, p.y, s);
+  });
+}
+
+function drawSector(ctx, cx, cy, sector) {
+  const target = state.taskMeta || {};
+  const isExtraction = target.extraction_sector === sector;
+  const tile = 200;
+  const dx = tile * 0.55, dy = tile * 0.30;
+
+  // Diamond tile
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - dy);
+  ctx.lineTo(cx + dx, cy);
+  ctx.lineTo(cx, cy + dy);
+  ctx.lineTo(cx - dx, cy);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
+  grad.addColorStop(0, "rgba(40, 60, 110, 0.95)");
+  grad.addColorStop(1, "rgba(8, 14, 36, 0.95)");
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = isExtraction ? "rgba(77, 255, 156, 0.85)" : "rgba(88, 245, 255, 0.4)";
+  ctx.lineWidth = isExtraction ? 2.4 : 1.2;
+  ctx.stroke();
+
+  if (isExtraction) {
+    ctx.save();
+    ctx.shadowColor = "rgba(77, 255, 156, 0.7)";
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = "rgba(77, 255, 156, 0.9)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Buildings (per district silhouette)
+  const blueprints = {
+    data_spire: [{ w: 50, h: 110 }, { w: 28, h: 70 }, { w: 36, h: 90 }],
+    docklands:  [{ w: 80, h: 30 },  { w: 60, h: 24 }, { w: 50, h: 24 }],
+    undergrid:  [{ w: 45, h: 45 }, { w: 40, h: 35 }, { w: 35, h: 40 }, { w: 40, h: 30 }],
+    citadel_gate:[{ w: 60, h: 70 }, { w: 70, h: 90 }, { w: 50, h: 60 }],
+  };
+  const buildings = blueprints[sector] || [];
+  let bx = cx - dx + 30, by = cy - 8;
+  buildings.forEach((b) => {
+    ctx.fillStyle = "rgba(20, 32, 64, 0.92)";
+    ctx.fillRect(bx, by - b.h, b.w, b.h);
+    ctx.strokeStyle = "rgba(88, 245, 255, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, by - b.h + 0.5, b.w - 1, b.h - 1);
+    ctx.fillStyle = "rgba(255, 92, 220, 0.65)";
+    for (let wy = by - b.h + 6; wy < by - 4; wy += 8) {
+      for (let wx = bx + 4; wx < bx + b.w - 4; wx += 10) {
+        if (((wx + wy + sector.charCodeAt(0)) % 7) > 3) ctx.fillRect(wx, wy, 3, 3);
+      }
+    }
+    bx += b.w + 12;
+  });
+
+  // Faction badge: which faction owns this district
+  const ownerFaction = Object.keys(FACTION_HOME).find((f) => FACTION_HOME[f] === sector);
+  if (ownerFaction) {
+    ctx.fillStyle = FACTION_COLOR[ownerFaction];
+    ctx.beginPath();
+    ctx.arc(cx + dx - 14, cy - dy + 18, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Label
+  ctx.fillStyle = "rgba(230, 236, 255, 0.95)";
+  ctx.font = "bold 13px ui-sans-serif, system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(SECTOR_LABELS[sector], cx, cy + dy + 18);
+  if (isExtraction) {
+    ctx.fillStyle = "rgba(77, 255, 156, 0.95)";
+    ctx.font = "10px ui-sans-serif";
+    ctx.fillText("EXTRACTION POINT", cx, cy + dy + 32);
+  }
+  if (ownerFaction) {
+    ctx.fillStyle = FACTION_COLOR[ownerFaction];
+    ctx.font = "10px ui-sans-serif";
+    ctx.fillText(FACTION_LABEL[ownerFaction].toUpperCase(), cx, cy - dy - 8);
+  }
+}
+
+function drawNodes(ctx) {
+  // Subtle node icons in each district to suggest interactability
+  const positions = sectorPositions();
+  for (const [sector, p] of Object.entries(positions)) {
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - 14, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawWaypoint(ctx) {
+  if (!state.waypoint) return;
+  const wp = state.waypoint;
+  const t = performance.now() / 1000;
+  const pulse = 1 + 0.15 * Math.sin(t * 5);
+  const rng = wp.radius * pulse;
+  // Range ring
+  ctx.save();
+  ctx.strokeStyle = wp.color;
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = wp.color;
+  ctx.shadowBlur = 22;
+  ctx.beginPath();
+  ctx.arc(wp.x, wp.y, rng, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = wp.color;
+  ctx.beginPath();
+  ctx.arc(wp.x, wp.y, wp.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Vertical beam
+  const beamH = 80 + 10 * Math.sin(t * 4);
+  const beamGrad = ctx.createLinearGradient(wp.x, wp.y - beamH, wp.x, wp.y);
+  beamGrad.addColorStop(0, "rgba(255,255,255,0)");
+  beamGrad.addColorStop(1, wp.color);
+  ctx.fillStyle = beamGrad;
+  ctx.globalAlpha = 0.65;
+  ctx.fillRect(wp.x - 2, wp.y - beamH, 4, beamH);
+  ctx.globalAlpha = 1;
+
+  // Arrow pointing from player to waypoint when far
+  const dx = wp.x - player.x, dy = wp.y - player.y;
+  const d = Math.hypot(dx, dy);
+  if (d > wp.radius + 30) {
+    const ang = Math.atan2(dy, dx);
+    const ax = player.x + Math.cos(ang) * 50;
+    const ay = player.y + Math.sin(ang) * 50;
+    ctx.save();
+    ctx.translate(ax, ay);
+    ctx.rotate(ang);
+    ctx.fillStyle = wp.color;
+    ctx.shadowColor = wp.color;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(-12, -7); ctx.lineTo(-12, 7); ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Label
+  ctx.font = "bold 13px ui-sans-serif, system-ui";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(7, 9, 19, 0.85)";
+  const w = ctx.measureText(wp.label).width + 16;
+  ctx.fillRect(wp.x - w / 2, wp.y - wp.radius - 30, w, 22);
+  ctx.fillStyle = wp.color;
+  ctx.fillText(wp.label, wp.x, wp.y - wp.radius - 14);
+  // Hint when in range
+  if (d < wp.radius + 8) {
+    ctx.font = "12px ui-sans-serif";
+    ctx.fillStyle = "rgba(7, 9, 19, 0.85)";
+    const hint = "PRESS E";
+    const hw = ctx.measureText(hint).width + 12;
+    ctx.fillRect(wp.x - hw / 2, wp.y + wp.radius + 6, hw, 18);
+    ctx.fillStyle = "#06121b";
+    ctx.fillStyle = wp.color;
+    ctx.fillText(hint, wp.x, wp.y + wp.radius + 19);
+  }
+}
+
+function drawPlayer(ctx) {
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  // shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.beginPath(); ctx.ellipse(0, 14, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+  // glow
+  ctx.shadowColor = "rgba(88, 245, 255, 0.9)";
+  ctx.shadowBlur = 22;
+  // body
+  ctx.fillStyle = "#0a1422";
+  ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+  // halo
+  ctx.fillStyle = "#58f5ff";
+  ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // eye core
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(0, -2, 3, 0, Math.PI * 2); ctx.fill();
+  // direction indicator
+  ctx.strokeStyle = "rgba(88, 245, 255, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(Math.cos(player.dir) * 16, Math.sin(player.dir) * 16);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAtmosphere(ctx) {
+  // Threat-based tint
+  const o = state.observation;
+  if (!o) return;
+  const tint = o.known_threat === "critical" ? "rgba(255, 91, 107, 0.10)"
+            : o.known_threat === "high"     ? "rgba(255, 168, 64, 0.07)"
+            : o.known_threat === "medium"   ? "rgba(255, 216, 77, 0.05)"
+            : "rgba(77, 255, 156, 0.02)";
+  ctx.fillStyle = tint;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+}
+
+// =============================================================================
+// FX
+// =============================================================================
+function spawnFx(x, y, type) {
+  state.fxList.push({ x, y, type, t: 0, duration: 0.9 });
+}
+
+function drawFx(ctx) {
+  for (const fx of state.fxList) {
+    const k = Math.min(1, fx.t / fx.duration);
+    ctx.save();
+    if (fx.type === "scout_sector") {
+      for (let i = 0; i < 3; i++) {
+        const r = 40 + i * 28 + k * 60;
+        ctx.strokeStyle = `rgba(88, 245, 255, ${0.6 * (1 - k) - i * 0.15})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else if (fx.type === "deploy_asset") {
+      ctx.strokeStyle = `rgba(77, 255, 156, ${1 - k})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(fx.x, fx.y - 120 * (1 - k)); ctx.lineTo(fx.x, fx.y); ctx.stroke();
+      ctx.fillStyle = `rgba(77, 255, 156, ${0.5 * (1 - k)})`;
+      ctx.beginPath(); ctx.arc(fx.x, fx.y, 30 + k * 40, 0, Math.PI * 2); ctx.fill();
+    } else if (fx.type === "run_operation") {
+      ctx.fillStyle = `rgba(255, 92, 220, ${0.25 * (1 - k)})`;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.strokeStyle = `rgba(255, 92, 220, ${1 - k})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(fx.x, fx.y, 30 + k * 80, 0, Math.PI * 2); ctx.stroke();
+    } else if (fx.type === "secure_extraction") {
+      ctx.strokeStyle = `rgba(77, 255, 156, ${1 - k})`;
+      ctx.lineWidth = 3;
+      const len = 40 + 60 * k;
+      ctx.beginPath();
+      ctx.moveTo(fx.x - len, fx.y - len); ctx.lineTo(fx.x + len, fx.y + len);
+      ctx.moveTo(fx.x + len, fx.y - len); ctx.lineTo(fx.x - len, fx.y + len);
+      ctx.stroke();
+    } else if (fx.type === "negotiate_pact") {
+      ctx.strokeStyle = `rgba(164, 123, 255, ${1 - k})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 2; i++) {
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, 18 + i * 12 + k * 30, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else if (fx.type === "trade_resources") {
+      ctx.strokeStyle = `rgba(255, 216, 77, ${1 - k})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const r = 24 + k * 30;
+      ctx.moveTo(fx.x - r, fx.y); ctx.lineTo(fx.x + r, fx.y);
+      ctx.moveTo(fx.x + r - 6, fx.y - 5); ctx.lineTo(fx.x + r, fx.y); ctx.lineTo(fx.x + r - 6, fx.y + 5);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = `rgba(255, 216, 77, ${1 - k})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(fx.x, fx.y, 20 + k * 30, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// =============================================================================
+// Misc
+// =============================================================================
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+document.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>

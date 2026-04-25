@@ -21,12 +21,32 @@ tags:
 
 ## For Judges — Start Here
 
-If you have **3 minutes**, read this first: **[`docs/judge_flow.md`](docs/judge_flow.md)** — every deliverable is graded inside that single document.
+> ### ⌬ One-page showcase: **[https://hsbharadwaj-ev.hf.space/judge](https://hsbharadwaj-ev.hf.space/judge)**
+>
+> Every required link, the policy ladder, the live training curve, a runnable
+> agent demo, and the criteria scorecard — in a single screen. Open this if you
+> only have 60 seconds.
 
-Other entry points:
+Required submission links:
+
+| Asset | Link |
+|---|---|
+| 🤗 **Hugging Face Space** | [huggingface.co/spaces/hsbharadwaj/ev](https://huggingface.co/spaces/hsbharadwaj/ev) |
+| ▶ **Colab notebook (TRL PPO)** | [Open in Colab](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb) |
+| ⌥ **GitHub repository** | [github.com/hschinmayabharadwaj/Openev](https://github.com/hschinmayabharadwaj/Openev) |
+| ⚡ Runtime API (live env) | [hsbharadwaj-ev.hf.space/health](https://hsbharadwaj-ev.hf.space/health) |
+| ⌬ **Judge showcase page** | [hsbharadwaj-ev.hf.space/judge](https://hsbharadwaj-ev.hf.space/judge) |
+| ⌬ **Reward Forensics Lab** ★ | [hsbharadwaj-ev.hf.space/lab](https://hsbharadwaj-ev.hf.space/lab) — RLVE knob, 5-gate timeline, reward-hacking sandbox |
+| ⌬ **Walkthrough** ★ | [hsbharadwaj-ev.hf.space/walkthrough](https://hsbharadwaj-ev.hf.space/walkthrough) — every concept from the briefing mapped to this codebase |
+| 🎮 Playable heist | [hsbharadwaj-ev.hf.space/heist](https://hsbharadwaj-ev.hf.space/heist) |
+| 📺 Watch-mode race | [hsbharadwaj-ev.hf.space/play](https://hsbharadwaj-ev.hf.space/play) |
+
+Long-form entry points:
 
 | You want… | Open this |
 |---|---|
+| **The full walkthrough (every concept → code)** ★ | [`docs/walkthrough.md`](docs/walkthrough.md) or [/walkthrough](https://hsbharadwaj-ev.hf.space/walkthrough) |
+| The 3-minute walkthrough | [`docs/judge_flow.md`](docs/judge_flow.md) |
 | The story / why-it-matters | [`docs/mini_blog.md`](docs/mini_blog.md) |
 | A slide-by-slide pitch deck | [`docs/pitch_flow.md`](docs/pitch_flow.md) |
 | A live `curl`-driven demo, scene by scene | [`docs/demo_storyboard.md`](docs/demo_storyboard.md) |

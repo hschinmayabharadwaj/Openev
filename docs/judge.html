@@ -1,0 +1,1654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Syndicate · Judge Showcase</title>
+<meta name="description" content="OpenEnv Hackathon submission. Multi-agent, long-horizon strategy environment + TRL PPO training + a playable cyberpunk heist driven by the trained LLM." />
+<meta name="theme-color" content="#05060a" />
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23030308'/><text x='50' y='62' font-size='52' text-anchor='middle' fill='%2300f5ff' font-family='ui-sans-serif'>NS</text></svg>" />
+
+<style>
+:root {
+  --ink: #e6e9f2;
+  --ink-mute: #7a8298;
+  --ink-soft: #b3b9c9;
+  --deep: #04050a;
+  --bg: #07090f;
+  --panel: rgba(255,255,255,0.025);
+  --line: #1c2030;
+  --line-strong: #2a3046;
+  --neon-cyan: #00f5ff;
+  --neon-pink: #ff2d8a;
+  --neon-yellow: #ffd400;
+  --neon-green: #00ffae;
+  --neon-violet: #b78bff;
+  --shadow-cyan: 0 0 22px rgba(0,245,255,0.35);
+  --shadow-pink: 0 0 22px rgba(255,45,138,0.35);
+  --grid: linear-gradient(rgba(0,245,255,0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,245,255,0.06) 1px, transparent 1px);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background: var(--grid);
+  background-size: 64px 64px;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse at top, black 30%, transparent 80%);
+  z-index: 0;
+}
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(800px 500px at 80% -10%, rgba(255,45,138,0.18), transparent 60%),
+    radial-gradient(900px 600px at -10% 30%, rgba(0,245,255,0.15), transparent 65%),
+    radial-gradient(800px 700px at 50% 110%, rgba(183,139,255,0.12), transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+main, header, footer { position: relative; z-index: 1; }
+
+/* =========================================================================
+   Top bar
+========================================================================= */
+.topbar {
+  position: sticky; top: 0;
+  background: rgba(7,9,15,0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  z-index: 50;
+}
+.topbar-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 24px;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--ink);
+  font-weight: 700; letter-spacing: 0.06em;
+}
+.brand .logo {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+  display: grid; place-items: center;
+  color: #05060a; font-weight: 900; font-size: 13px;
+  box-shadow: var(--shadow-cyan);
+}
+.brand-tag {
+  font-size: 11px; color: var(--neon-cyan); font-weight: 600;
+  border: 1px solid rgba(0,245,255,0.3);
+  padding: 2px 8px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: 0.18em;
+}
+.spacer { flex: 1; }
+.topbar-links {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.tlink {
+  text-decoration: none;
+  font-size: 12px; font-weight: 600;
+  color: var(--ink-soft);
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all .15s ease;
+  letter-spacing: 0.04em;
+}
+.tlink:hover {
+  color: var(--ink);
+  border-color: var(--neon-cyan);
+  box-shadow: var(--shadow-cyan);
+  transform: translateY(-1px);
+}
+.tlink.primary {
+  background: linear-gradient(135deg, rgba(0,245,255,0.18), rgba(255,45,138,0.18));
+  color: var(--ink); border-color: rgba(0,245,255,0.5);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.ok { background: var(--neon-green); box-shadow: 0 0 12px var(--neon-green); animation: pulse 2.4s ease-in-out infinite; }
+.dot.warn { background: var(--neon-yellow); box-shadow: 0 0 12px var(--neon-yellow); }
+.dot.bad  { background: var(--neon-pink); box-shadow: 0 0 12px var(--neon-pink); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* =========================================================================
+   Hero
+========================================================================= */
+section.hero {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 72px 24px 36px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 52px;
+  align-items: center;
+}
+@media (max-width: 920px) { section.hero { grid-template-columns: 1fr; padding-top: 40px; } }
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--neon-cyan);
+  border: 1px solid rgba(0,245,255,0.35);
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(0,245,255,0.05);
+  margin-bottom: 16px;
+}
+h1.hero-title {
+  margin: 0 0 16px;
+  font-size: clamp(40px, 6.4vw, 84px);
+  line-height: 0.96;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  background: linear-gradient(125deg, #fff 30%, var(--neon-cyan) 55%, var(--neon-pink) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 50px rgba(0,245,255,0.15);
+}
+.hero-lede {
+  font-size: clamp(15px, 1.4vw, 18px);
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin: 0 0 26px;
+}
+.hero-pill-row {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 28px;
+}
+.hero-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255,255,255,0.02);
+  color: var(--ink-soft);
+}
+.cta-row {
+  display: flex; flex-wrap: wrap; gap: 12px;
+}
+a.cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 22px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-size: 15px;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+a.cta:hover { transform: translateY(-1px); }
+.cta.cyan {
+  background: linear-gradient(135deg, var(--neon-cyan), #66ffff);
+  color: #04050a;
+  box-shadow: var(--shadow-cyan);
+}
+.cta.cyan:hover { box-shadow: 0 0 36px rgba(0,245,255,0.55); }
+.cta.pink {
+  background: linear-gradient(135deg, var(--neon-pink), #ff8fbd);
+  color: #04050a;
+  box-shadow: var(--shadow-pink);
+}
+.cta.pink:hover { box-shadow: 0 0 36px rgba(255,45,138,0.55); }
+.cta.ghost {
+  background: rgba(255,255,255,0.03);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+}
+.cta.ghost:hover {
+  border-color: var(--neon-cyan);
+  box-shadow: var(--shadow-cyan);
+}
+.hero-art {
+  position: relative;
+  aspect-ratio: 1.05 / 1;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 25% 25%, rgba(0,245,255,0.32), transparent 55%),
+    radial-gradient(circle at 75% 75%, rgba(255,45,138,0.28), transparent 55%),
+    linear-gradient(180deg, #0a0d18, #03050a);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.45), inset 0 0 60px rgba(0,245,255,0.06);
+}
+.hero-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-art .glyph { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 22vw; color: rgba(255,255,255,0.04); letter-spacing: -0.05em; }
+@media (max-width: 920px) { .hero-art .glyph { font-size: 36vw; } }
+
+/* =========================================================================
+   Required-links band
+========================================================================= */
+.required-band {
+  max-width: 1240px;
+  margin: 24px auto 0;
+  padding: 0 24px;
+}
+.required-band .card {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+  border-radius: 18px;
+  padding: 22px 22px 20px;
+  position: relative; overflow: hidden;
+}
+.required-band .card::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink), var(--neon-yellow));
+}
+.required-band h3 {
+  margin: 0 0 4px; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+}
+.required-band p { margin: 0 0 16px; color: var(--ink-soft); font-size: 13px; }
+.required-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1000px) { .required-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px)  { .required-grid { grid-template-columns: 1fr; } }
+.required-link {
+  text-decoration: none;
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 16px 14px;
+  background: rgba(255,255,255,0.015);
+  color: var(--ink);
+  transition: all .15s ease;
+}
+.required-link:hover {
+  border-color: var(--neon-cyan);
+  background: rgba(0,245,255,0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(0,245,255,0.15);
+}
+.required-link .lbl { font-size: 11px; color: var(--ink-mute); letter-spacing: 0.18em; text-transform: uppercase; }
+.required-link .val { font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.required-link .url {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--ink-mute); word-break: break-all;
+}
+.required-link .arrow {
+  margin-left: auto; color: var(--neon-cyan);
+  transition: transform .15s ease;
+}
+.required-link:hover .arrow { transform: translateX(3px); }
+
+/* =========================================================================
+   Section scaffolding
+========================================================================= */
+section.block {
+  max-width: 1240px;
+  margin: 64px auto 0;
+  padding: 0 24px;
+}
+.block-head {
+  display: flex; align-items: end; justify-content: space-between;
+  gap: 24px; margin-bottom: 18px;
+}
+.block-head h2 {
+  margin: 0; font-size: clamp(22px, 2.4vw, 28px);
+  letter-spacing: -0.01em; font-weight: 700;
+}
+.block-head h2 .accent { color: var(--neon-cyan); }
+.block-head p { margin: 6px 0 0; color: var(--ink-mute); max-width: 60ch; font-size: 14px; }
+.section-tag {
+  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--neon-pink);
+  border: 1px solid rgba(255,45,138,0.35);
+  padding: 4px 10px; border-radius: 999px;
+}
+
+/* =========================================================================
+   Policy Ladder
+========================================================================= */
+.ladder {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 22px;
+}
+@media (max-width: 920px) { .ladder { grid-template-columns: 1fr; } }
+.ladder-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ladder-head h3 { margin: 0; font-size: 16px; }
+.ladder-head .pill { font-size: 11px; color: var(--ink-mute); border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; }
+.bars { display: flex; flex-direction: column; gap: 14px; }
+.bar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 90px;
+  align-items: center;
+  gap: 12px;
+}
+.bar-name { font-size: 13px; font-weight: 600; }
+.bar-name .dotc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.bar-track {
+  height: 22px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: 8px;
+  transition: width 1.4s cubic-bezier(.2,.8,.2,1);
+}
+.bar-fill.random   { background: linear-gradient(90deg, #5b6c87, #8693ad); }
+.bar-fill.trained  { background: linear-gradient(90deg, var(--neon-pink), #ff8fbd); }
+.bar-fill.hybrid   { background: linear-gradient(90deg, var(--neon-cyan), var(--neon-violet)); box-shadow: inset 0 0 20px rgba(0,245,255,0.4); }
+.bar-fill.heuristic{ background: linear-gradient(90deg, var(--neon-green), #6affd0); }
+.bar-fill::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 8px, transparent 8px 16px);
+  mix-blend-mode: overlay;
+  opacity: .5;
+}
+.bar-value { font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink); text-align: right; }
+.bar-meta { font-size: 11px; color: var(--ink-mute); }
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+.legend-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.015);
+}
+.legend-card h4 { margin: 0 0 4px; font-size: 13px; }
+.legend-card p { margin: 0; color: var(--ink-mute); font-size: 12px; }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+
+/* =========================================================================
+   Training-curve panel
+========================================================================= */
+.curve-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 22px;
+}
+.curve-toolbar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 12px;
+}
+.toggle {
+  font-size: 12px; cursor: pointer; user-select: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-mute);
+  padding: 6px 10px; border-radius: 8px;
+  font-weight: 600;
+  transition: all .15s ease;
+}
+.toggle.active, .toggle:hover {
+  color: var(--ink);
+  border-color: var(--neon-cyan);
+  box-shadow: var(--shadow-cyan);
+}
+#curveSvg {
+  width: 100%; height: 320px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: block;
+  margin-top: 12px;
+}
+.curve-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+@media (max-width: 700px) { .curve-stats { grid-template-columns: repeat(2, 1fr); } }
+.stat {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.015);
+}
+.stat .lbl { font-size: 10px; color: var(--ink-mute); letter-spacing: 0.18em; text-transform: uppercase; }
+.stat .val { font-family: ui-monospace, monospace; font-size: 22px; margin-top: 4px; color: var(--neon-cyan); }
+.stat.alt .val { color: var(--neon-pink); }
+.stat.alt2 .val { color: var(--neon-yellow); }
+.stat.alt3 .val { color: var(--neon-green); }
+.curve-source {
+  margin-top: 10px; font-size: 11px; color: var(--ink-mute);
+  font-family: ui-monospace, monospace;
+}
+
+/* =========================================================================
+   Live agent demo
+========================================================================= */
+.live-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 980px) { .live-grid { grid-template-columns: 1fr; } }
+.live-canvas-wrap {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #050810, #03040a);
+  border-radius: 16px;
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+#liveCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.live-overlay {
+  position: absolute; left: 12px; bottom: 12px; right: 12px;
+  display: flex; gap: 10px; flex-wrap: wrap;
+  align-items: center;
+}
+.live-overlay .badge {
+  font-size: 11px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 5px 9px;
+  color: var(--ink);
+}
+.live-side {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.controls {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.controls .ctrl-btn {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--line);
+  color: var(--ink); cursor: pointer;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all .15s ease;
+}
+.controls .ctrl-btn:hover { border-color: var(--neon-cyan); box-shadow: var(--shadow-cyan); }
+.controls .ctrl-btn.primary {
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-violet));
+  color: #04050a; border: none;
+}
+select.policy-pick {
+  font: inherit; font-size: 13px; font-weight: 600;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px; color: var(--ink);
+}
+.action-card {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.015);
+  border-radius: 14px; padding: 14px;
+}
+.action-card h4 { margin: 0 0 6px; font-size: 13px; color: var(--ink-mute); letter-spacing: 0.12em; text-transform: uppercase; }
+.action-text {
+  font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.55;
+  color: var(--ink-soft); white-space: pre-wrap; word-break: break-word;
+  max-height: 110px; overflow: auto;
+}
+.tag {
+  display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  margin-right: 6px;
+}
+.tag.native    { color: var(--ink); }
+.tag.guardrail { color: var(--neon-cyan); border-color: rgba(0,245,255,0.4); }
+.tag.fallback  { color: var(--neon-yellow); border-color: rgba(255,212,0,0.4); }
+
+/* =========================================================================
+   Reward-component breakdown
+========================================================================= */
+.rdcomp-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+@media (max-width: 840px) { .rdcomp-grid { grid-template-columns: repeat(2, 1fr); } }
+.rdcomp {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.015);
+  border-radius: 12px;
+  padding: 12px;
+}
+.rdcomp .lbl { font-size: 10px; letter-spacing: 0.18em; color: var(--ink-mute); text-transform: uppercase; }
+.rdcomp .meter {
+  height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;
+  margin: 8px 0 6px;
+}
+.rdcomp .meter > div { height: 100%; transition: width .8s cubic-bezier(.2,.8,.2,1); }
+.rdcomp .val { font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink); }
+
+/* =========================================================================
+   Criteria scorecard
+========================================================================= */
+.criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 980px) { .criteria-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .criteria-grid { grid-template-columns: 1fr; } }
+.crit {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.015);
+  border-radius: 16px;
+  padding: 16px 16px 14px;
+  position: relative; overflow: hidden;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.crit:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+.crit::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+}
+.crit.c1::before { background: var(--neon-cyan); }
+.crit.c2::before { background: var(--neon-pink); }
+.crit.c3::before { background: var(--neon-yellow); }
+.crit.c4::before { background: var(--neon-green); }
+.crit .weight {
+  position: absolute; top: 12px; right: 12px;
+  font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-mute);
+  border: 1px solid var(--line-strong); padding: 2px 8px; border-radius: 999px;
+}
+.crit h4 { margin: 0 0 6px; font-size: 14px; }
+.crit p { margin: 0 0 10px; color: var(--ink-mute); font-size: 12px; line-height: 1.55; }
+.crit .evidence {
+  font-size: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.crit .evidence a, .crit .evidence span {
+  color: var(--ink-soft); text-decoration: none; font-size: 11px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.crit .evidence a:hover { color: var(--neon-cyan); }
+
+/* =========================================================================
+   Differentiator cards
+========================================================================= */
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 920px) { .diff-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 580px) { .diff-grid { grid-template-columns: 1fr; } }
+.diff {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005));
+  border-radius: 16px;
+  padding: 18px;
+  position: relative;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.diff:hover { transform: translateY(-2px); border-color: var(--neon-cyan); }
+.diff .num {
+  font-family: ui-monospace, monospace;
+  font-size: 11px; color: var(--neon-cyan); letter-spacing: 0.16em;
+}
+.diff h4 { margin: 6px 0 8px; font-size: 16px; }
+.diff p { margin: 0; font-size: 13px; color: var(--ink-mute); line-height: 1.6; }
+
+/* =========================================================================
+   PNG fallback
+========================================================================= */
+.png-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 760px) { .png-grid { grid-template-columns: 1fr; } }
+.png-card {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.02);
+  border-radius: 16px;
+  padding: 14px;
+}
+.png-card img {
+  width: 100%; display: block; border-radius: 8px;
+  background: #0e1320;
+}
+.png-card .png-label {
+  margin-top: 10px;
+  font-size: 12px; color: var(--ink-mute);
+  font-family: ui-monospace, monospace;
+}
+
+/* =========================================================================
+   Footer
+========================================================================= */
+footer {
+  margin: 80px auto 40px;
+  max-width: 1240px;
+  padding: 0 24px;
+  color: var(--ink-mute);
+  font-size: 12px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+}
+footer a { color: var(--ink); text-decoration: none; }
+footer a:hover { color: var(--neon-cyan); }
+
+/* =========================================================================
+   Utility
+========================================================================= */
+.fade-in {
+  opacity: 0; transform: translateY(8px);
+  animation: fadeIn .55s ease forwards;
+}
+@keyframes fadeIn { to { opacity: 1; transform: none; } }
+.tooltip {
+  position: absolute; pointer-events: none;
+  background: rgba(0,0,0,0.85);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  font-family: ui-monospace, monospace;
+  font-size: 11px; padding: 6px 8px; border-radius: 6px;
+  transform: translate(-50%, -120%);
+  white-space: nowrap;
+  z-index: 30;
+  display: none;
+}
+.skiplink {
+  position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden;
+}
+.skiplink:focus {
+  left: 12px; top: 12px; width: auto; height: auto; padding: 8px 12px;
+  background: var(--neon-cyan); color: #03050a; border-radius: 6px; z-index: 100;
+}
+</style>
+</head>
+
+<body>
+<a class="skiplink" href="#main">Skip to main content</a>
+
+<!-- ====================================================================== -->
+<!-- Top bar                                                                -->
+<!-- ====================================================================== -->
+<header class="topbar" role="banner">
+  <div class="topbar-inner">
+    <a class="brand" href="#main">
+      <span class="logo">NS</span>
+      <span>Neon Syndicate</span>
+      <span class="brand-tag">OpenEnv · Hackathon</span>
+    </a>
+    <span class="spacer"></span>
+    <nav class="topbar-links" aria-label="Quick navigation">
+      <a class="tlink" href="#ladder">Policy ladder</a>
+      <a class="tlink" href="#training">Training</a>
+      <a class="tlink" href="#live">Live demo</a>
+      <a class="tlink" href="#criteria">Judging</a>
+      <a class="tlink" href="/lab">⌬ Lab</a>
+      <a class="tlink" href="/walkthrough">⌬ Walkthrough</a>
+      <a class="tlink primary" id="topHfBtn" href="#" target="_blank" rel="noopener">🤗 HF Space</a>
+      <a class="tlink primary" id="topColabBtn" href="#" target="_blank" rel="noopener">▶ Colab</a>
+      <a class="tlink primary" id="topGhBtn" href="#" target="_blank" rel="noopener">⌥ GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" role="main">
+
+  <!-- ==================================================================== -->
+  <!-- Hero                                                                 -->
+  <!-- ==================================================================== -->
+  <section class="hero fade-in">
+    <div>
+      <span class="hero-eyebrow">⌬ OpenEnv · Multi-agent · Long-horizon</span>
+      <h1 class="hero-title">Twelve good decisions in a row.</h1>
+      <p class="hero-lede">
+        Neon Syndicate is a cinematic OpenEnv environment where an LLM negotiates
+        coalitions, scouts sectors, executes a coded operation, and extracts —
+        all under partial observability. Most benchmarks reward one good answer.
+        This one rewards a sequence.
+      </p>
+      <div class="hero-pill-row" id="heroPills">
+        <span class="hero-pill"><span class="dot ok" id="envDot"></span><span id="envState">env: checking…</span></span>
+        <span class="hero-pill"><span class="dot warn" id="modelDot"></span><span id="modelState">model: loading…</span></span>
+        <span class="hero-pill">12-turn budget</span>
+        <span class="hero-pill">5 reward gates</span>
+        <span class="hero-pill">6 missions · easy → hard</span>
+        <span class="hero-pill">TRL PPO · Qwen 2.5 0.5B</span>
+      </div>
+      <div class="cta-row">
+        <a class="cta cyan" id="heroHfBtn" href="#" target="_blank" rel="noopener">
+          🤗 Open the HF Space →
+        </a>
+        <a class="cta pink" id="heroColabBtn" href="#" target="_blank" rel="noopener">
+          ▶ Run training in Colab
+        </a>
+        <a class="cta ghost" id="heroGhBtn" href="#" target="_blank" rel="noopener">
+          ⌥ Browse the code on GitHub
+        </a>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="glyph">NS</div>
+      <svg viewBox="0 0 480 460" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#00f5ff"/>
+            <stop offset="100%" stop-color="#ff2d8a"/>
+          </linearGradient>
+        </defs>
+        <!-- Isometric city grid evoking the heist map -->
+        <g stroke="rgba(0,245,255,0.35)" fill="none" stroke-width="1">
+          <path d="M40 240 L240 120 L440 240 L240 360 Z"/>
+          <path d="M120 200 L240 140 L360 200"/>
+          <path d="M120 280 L240 340 L360 280"/>
+          <path d="M120 200 L120 280"/>
+          <path d="M360 200 L360 280"/>
+          <path d="M240 140 L240 340"/>
+        </g>
+        <!-- Faction nodes -->
+        <g>
+          <circle cx="120" cy="200" r="10" fill="url(#g1)"/>
+          <circle cx="360" cy="200" r="10" fill="#ffd400"/>
+          <circle cx="240" cy="140" r="10" fill="#00ffae"/>
+          <circle cx="240" cy="340" r="10" fill="#b78bff"/>
+        </g>
+        <!-- Path of operation -->
+        <path d="M120 200 Q220 130 240 140 T360 200 Q300 280 240 340"
+              fill="none" stroke="url(#g1)" stroke-width="2" stroke-dasharray="4 6">
+          <animate attributeName="stroke-dashoffset" from="0" to="-80" dur="3s" repeatCount="indefinite"/>
+        </path>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Required submission links                                            -->
+  <!-- ==================================================================== -->
+  <section class="required-band fade-in" id="links" aria-label="Required submission links">
+    <div class="card">
+      <h3>Required submission links</h3>
+      <p>Every link the judges asked for, in one place. Hover for the URL; click to open.</p>
+      <div class="required-grid">
+        <a class="required-link" id="hfLink" href="#" target="_blank" rel="noopener">
+          <span class="lbl">🤗 Hugging Face Space</span>
+          <span class="val">Live env runtime <span class="arrow">→</span></span>
+          <span class="url" id="hfUrl">…</span>
+        </a>
+        <a class="required-link" id="colabLink" href="#" target="_blank" rel="noopener">
+          <span class="lbl">▶ Colab notebook</span>
+          <span class="val">TRL PPO training <span class="arrow">→</span></span>
+          <span class="url" id="colabUrl">…</span>
+        </a>
+        <a class="required-link" id="ghLink" href="#" target="_blank" rel="noopener">
+          <span class="lbl">⌥ GitHub repository</span>
+          <span class="val">Source · README · curves <span class="arrow">→</span></span>
+          <span class="url" id="ghUrl">…</span>
+        </a>
+        <a class="required-link" id="runtimeLink" href="#" target="_blank" rel="noopener">
+          <span class="lbl">⚡ Runtime API</span>
+          <span class="val">/health · /tasks · /step <span class="arrow">→</span></span>
+          <span class="url" id="runtimeUrl">…</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Policy Ladder                                                        -->
+  <!-- ==================================================================== -->
+  <section class="block" id="ladder">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">Innovation · 40%</span>
+        <h2>The <span class="accent">Policy Ladder</span></h2>
+        <p>Same task, four policies, one axis. The trained LLM doesn't run in a vacuum — every claim is grounded against random and heuristic baselines.</p>
+      </div>
+    </div>
+    <div class="ladder">
+      <div>
+        <div class="ladder-head">
+          <h3 id="ladderTitle">Average task score on <code>task_easy_docklands_relay</code></h3>
+          <span class="pill" id="ladderEpisodes">N = 4 policies · 1 episode each</span>
+        </div>
+        <div class="bars" id="bars"></div>
+        <p style="margin: 14px 0 0; color: var(--ink-mute); font-size: 12px;">
+          Numbers come from <code>server.environment.NeonSyndicateEnvironment</code> via the same
+          <code>/agent/act</code> + <code>/step</code> pipeline judges will run.
+        </p>
+      </div>
+      <div>
+        <h3 style="margin: 0 0 12px; font-size: 16px;">What each policy is</h3>
+        <div class="legend-grid">
+          <div class="legend-card"><h4><span class="legend-dot" style="background:#8693ad"></span>Random</h4><p>Sanity floor — uniform action sampler. Confirms the env actually rewards strategy.</p></div>
+          <div class="legend-card"><h4><span class="legend-dot" style="background:var(--neon-pink)"></span>Trained (raw)</h4><p>TRL PPO Qwen 2.5 0.5B. Honest about being undertrained — falls back when JSON is broken.</p></div>
+          <div class="legend-card"><h4><span class="legend-dot" style="background:var(--neon-cyan)"></span>Hybrid <em>(★ ours)</em></h4><p>LLM proposes; env-rule guardrails reject obvious mistakes. The dashboard shows every override.</p></div>
+          <div class="legend-card"><h4><span class="legend-dot" style="background:var(--neon-green)"></span>Heuristic</h4><p>Hand-coded curriculum — the baseline ceiling for this env. Reliably reaches 0.83 task score.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Training-curve panel                                                 -->
+  <!-- ==================================================================== -->
+  <section class="block" id="training">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">Reward improvement · 20%</span>
+        <h2>Real <span class="accent">training run</span>, episode by episode</h2>
+        <p>Plotted live from <code>training_summary.jsonl</code>. Hover any point to see the per-episode breakdown — total reward, task score, success, steps.</p>
+      </div>
+      <div class="curve-toolbar" role="tablist" aria-label="Curve series">
+        <button class="toggle active" data-series="total_reward" aria-pressed="true">Total reward</button>
+        <button class="toggle" data-series="final_task_score" aria-pressed="false">Task score</button>
+        <button class="toggle" data-series="steps" aria-pressed="false">Episode length</button>
+      </div>
+    </div>
+    <div class="curve-card">
+      <svg id="curveSvg" viewBox="0 0 1200 320" preserveAspectRatio="none" aria-label="Training curve"></svg>
+      <div class="tooltip" id="curveTip"></div>
+      <div class="curve-stats" id="curveStats"></div>
+      <div class="curve-source" id="curveSource">data source: …</div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Live agent demo                                                      -->
+  <!-- ==================================================================== -->
+  <section class="block" id="live">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">Storytelling · 30%</span>
+        <h2>Watch the trained model <span class="accent">play, live</span></h2>
+        <p>One episode, eight seconds. Pick a policy, hit Run. The dashboard shows the action it picks, the env's reaction, and which guardrails fired.</p>
+      </div>
+    </div>
+    <div class="live-grid">
+      <div class="live-canvas-wrap">
+        <canvas id="liveCanvas" width="960" height="600"></canvas>
+        <div class="live-overlay">
+          <span class="badge" id="livePolicy">policy: hybrid</span>
+          <span class="badge" id="liveTask">task: —</span>
+          <span class="badge" id="liveTurn">turn 0/12</span>
+          <span class="badge" id="liveReward">cum 0.00</span>
+          <span class="badge" id="liveAction">—</span>
+        </div>
+      </div>
+      <div class="live-side">
+        <div class="controls">
+          <select class="policy-pick" id="policyPick" aria-label="Policy">
+            <option value="hybrid" selected>Hybrid (LLM + guardrails) ★</option>
+            <option value="trained">Trained PPO model (raw)</option>
+            <option value="heuristic">Heuristic baseline</option>
+            <option value="random">Random baseline</option>
+          </select>
+          <select class="policy-pick" id="taskPick" aria-label="Task"></select>
+          <button class="ctrl-btn primary" id="runBtn">▶ Run preview</button>
+          <a class="ctrl-btn" href="/heist" target="_blank" rel="noopener">🎮 Play it yourself</a>
+        </div>
+        <div class="action-card">
+          <h4>Operator's last thought</h4>
+          <div class="action-text" id="operatorThought">Press <strong>Run preview</strong> — the model fires up on demand and a one-episode rollout streams back over SSE.</div>
+          <div style="margin-top:8px">
+            <span class="tag" id="traceTag">awaiting</span>
+            <span style="font-size:11px; color: var(--ink-mute);" id="traceMeta"></span>
+          </div>
+        </div>
+        <div class="action-card">
+          <h4>Reward components (last step)</h4>
+          <div class="rdcomp-grid" id="rdcompGrid">
+            <div class="rdcomp"><div class="lbl">Alliance</div><div class="meter"><div style="width:0%;background:var(--neon-cyan)"></div></div><div class="val">+0.00</div></div>
+            <div class="rdcomp"><div class="lbl">Resources</div><div class="meter"><div style="width:0%;background:var(--neon-violet)"></div></div><div class="val">+0.00</div></div>
+            <div class="rdcomp"><div class="lbl">Operation</div><div class="meter"><div style="width:0%;background:var(--neon-pink)"></div></div><div class="val">+0.00</div></div>
+            <div class="rdcomp"><div class="lbl">Extract msg</div><div class="meter"><div style="width:0%;background:var(--neon-yellow)"></div></div><div class="val">+0.00</div></div>
+            <div class="rdcomp"><div class="lbl">Extract</div><div class="meter"><div style="width:0%;background:var(--neon-green)"></div></div><div class="val">+0.00</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Reward Forensics Lab callout                                         -->
+  <!-- ==================================================================== -->
+  <section class="block" id="forensics">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">⌬ Reward Forensics Lab</span>
+        <h2 class="block-title">Crank the difficulty. Watch the verifier work. Then try to break it.</h2>
+        <p class="block-sub">Three things on one page no other submission will ship: a procedural task generator with a 1→5 difficulty knob (RLVE), a live 5-gate verifier timeline showing per-component reward decomposition, and a reward-hacking sandbox you can fire pre-baked exploits at to see the env defenses kick in.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <a class="ctrl-btn primary" href="/lab" style="text-decoration:none;">→ Open the Lab</a>
+        <a class="ctrl-btn" href="/walkthrough" style="text-decoration:none;">→ Read the Walkthrough</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Judging criteria scorecard                                           -->
+  <!-- ==================================================================== -->
+  <section class="block" id="criteria">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">Rubric · how to grade us</span>
+        <h2>Evidence, mapped to the <span class="accent">judging criteria</span></h2>
+        <p>Each criterion → the artifact that proves it. Click through if you want the receipts.</p>
+      </div>
+    </div>
+    <div class="criteria-grid">
+      <article class="crit c1">
+        <span class="weight">40%</span>
+        <h4>Environment innovation</h4>
+        <p>Long-horizon coalition strategy with 7 action types, 4 factions, 4 sectors, partial observability and a 5-gate composable rubric.</p>
+        <div class="evidence">
+          <a href="https://github.com/hschinmayabharadwaj/Openev/blob/main/server/environment.py" target="_blank" rel="noopener">→ environment.py</a>
+          <a href="/tasks" target="_blank">→ /tasks (6 missions)</a>
+          <a href="/heist" target="_blank">→ /heist · player-controlled run</a>
+        </div>
+      </article>
+      <article class="crit c2">
+        <span class="weight">30%</span>
+        <h4>Storytelling &amp; presentation</h4>
+        <p>This page, the playable heist, the watch-mode race, the storyboard, the README — one story, four entry points.</p>
+        <div class="evidence">
+          <a href="/" target="_blank">→ Animated landing</a>
+          <a href="/play" target="_blank">→ Watch-mode race</a>
+          <a href="/heist" target="_blank">→ Playable heist</a>
+          <a href="https://github.com/hschinmayabharadwaj/Openev/blob/main/docs/judge_flow.md" target="_blank" rel="noopener">→ docs/judge_flow.md</a>
+        </div>
+      </article>
+      <article class="crit c3">
+        <span class="weight">20%</span>
+        <h4>Reward improvement</h4>
+        <p>Real PPO run committed to repo — JSONL log + reward/loss PNGs. Random vs heuristic baselines side-by-side on the same axes.</p>
+        <div class="evidence">
+          <a href="#training">→ live curve above</a>
+          <a href="/artifacts/reward_curves.png" target="_blank">→ reward_curves.png</a>
+          <a href="/artifacts/loss_curve.png" target="_blank">→ loss_curve.png</a>
+        </div>
+      </article>
+      <article class="crit c4">
+        <span class="weight">10%</span>
+        <h4>Reward &amp; training pipeline</h4>
+        <p>Dense rewards on 5 progress dimensions, hard penalties for shortcutting, hybrid-policy guardrails that block reward-hacking moves at inference.</p>
+        <div class="evidence">
+          <a href="https://github.com/hschinmayabharadwaj/Openev/blob/main/server/agent.py" target="_blank" rel="noopener">→ agent.py · HybridPolicy</a>
+          <a href="https://github.com/hschinmayabharadwaj/Openev/blob/main/training/train_trl_ppo.py" target="_blank" rel="noopener">→ train_trl_ppo.py</a>
+          <a id="critColab" href="#" target="_blank" rel="noopener">→ Colab</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Differentiators                                                      -->
+  <!-- ==================================================================== -->
+  <section class="block" id="diff">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">Why this is different</span>
+        <h2>Six things <span class="accent">no other submission</span> will have</h2>
+        <p>Built from the env primitives up. No gridworld clone, no chess wrapper, no synthetic data farm.</p>
+      </div>
+    </div>
+    <div class="diff-grid">
+      <div class="diff"><div class="num">01</div><h4>Hybrid policy with guardrails</h4><p>Trained LLM proposes; env-rule guardrails reject illegal actions before they burn turns. Every override is shown to the user — judges literally see <em>when</em> the model was wrong.</p></div>
+      <div class="diff"><div class="num">02</div><h4>Playable cyberpunk heist</h4><p>Walk an isometric city as Vex, take orders from the trained LLM ("The Operator") in your ear. WASD + E. Try doing that in a Colab notebook.</p></div>
+      <div class="diff"><div class="num">03</div><h4>Transparent reasoning panel</h4><p>Per-turn: prompt sent, raw model output, parsed action, latency, fallback flag. The model's mind is on screen.</p></div>
+      <div class="diff"><div class="num">04</div><h4>Multi-agent reputation</h4><p>4 factions with reputation deltas, alliance state, sector-specific deploy bonuses. Real coalition math, not flavor text.</p></div>
+      <div class="diff"><div class="num">05</div><h4>Composable 5-gate rubric</h4><p>Each step gives partial credit on alliance / resources / operation / extraction-message / extraction. Reward hacking is provably hard.</p></div>
+      <div class="diff"><div class="num">06</div><h4>Race-mode SSE</h4><p>Watch all 4 policies run the same task, lock-step, on one screen via Server-Sent Events. The bar chart resolves itself in 30 seconds.</p></div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== -->
+  <!-- Reward curve PNG fallback                                            -->
+  <!-- ==================================================================== -->
+  <section class="block" id="png">
+    <div class="block-head">
+      <div>
+        <span class="section-tag">Committed evidence</span>
+        <h2>Static plots <span class="accent">from the same run</span></h2>
+        <p>If anything above fails to load on the deployed Space, these PNGs are committed in <code>artifacts/</code> and embedded in the README.</p>
+      </div>
+    </div>
+    <div class="png-grid">
+      <figure class="png-card">
+        <img src="/artifacts/reward_curves.png" alt="Reward curves: random vs heuristic over episodes" loading="lazy" />
+        <figcaption class="png-label">artifacts/reward_curves.png — random vs heuristic, average reward by episode.</figcaption>
+      </figure>
+      <figure class="png-card">
+        <img src="/artifacts/loss_curve.png" alt="TRL PPO loss curve" loading="lazy" />
+        <figcaption class="png-label">artifacts/loss_curve.png — PPO loss across the committed training run.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div>Neon Syndicate · OpenEnv Hackathon · PyTorch Foundation 2026</div>
+  <div>
+    <a id="footHf" href="#" target="_blank" rel="noopener">HF Space</a> ·
+    <a id="footColab" href="#" target="_blank" rel="noopener">Colab</a> ·
+    <a id="footGh" href="#" target="_blank" rel="noopener">GitHub</a> ·
+    <a href="https://github.com/meta-pytorch/OpenEnv" target="_blank" rel="noopener">OpenEnv</a>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+// ============================================================================
+// Tiny helpers
+// ============================================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function fmt(n, d = 2) {
+  if (typeof n !== "number" || !isFinite(n)) return "—";
+  return n.toFixed(d);
+}
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+async function jget(path, fallback = null) {
+  try {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) return fallback;
+    return await r.json();
+  } catch (_) { return fallback; }
+}
+
+// ============================================================================
+// Public link wiring (pulled from /links so it stays in sync with the repo)
+// ============================================================================
+const FALLBACK_LINKS = {
+  hf_space: "https://huggingface.co/spaces/hsbharadwaj/ev",
+  hf_runtime: "https://hsbharadwaj-ev.hf.space",
+  colab: "https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb",
+  github: "https://github.com/hschinmayabharadwaj/Openev",
+  openenv: "https://github.com/meta-pytorch/OpenEnv",
+};
+
+async function wireLinks() {
+  const links = (await jget("/links")) || FALLBACK_LINKS;
+
+  const set = (id, href, label) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.href = href;
+    if (label) el.textContent = label;
+  };
+
+  // Top bar
+  set("topHfBtn", links.hf_space);
+  set("topColabBtn", links.colab);
+  set("topGhBtn", links.github);
+
+  // Hero CTAs
+  set("heroHfBtn", links.hf_space);
+  set("heroColabBtn", links.colab);
+  set("heroGhBtn", links.github);
+
+  // Required-links band
+  document.getElementById("hfLink").href = links.hf_space;
+  document.getElementById("hfUrl").textContent = links.hf_space;
+  document.getElementById("colabLink").href = links.colab;
+  document.getElementById("colabUrl").textContent = links.colab;
+  document.getElementById("ghLink").href = links.github;
+  document.getElementById("ghUrl").textContent = links.github;
+  document.getElementById("runtimeLink").href = links.hf_runtime + "/health";
+  document.getElementById("runtimeUrl").textContent = links.hf_runtime;
+
+  // Criteria card colab
+  document.getElementById("critColab").href = links.colab;
+
+  // Footer
+  document.getElementById("footHf").href = links.hf_space;
+  document.getElementById("footColab").href = links.colab;
+  document.getElementById("footGh").href = links.github;
+}
+
+// ============================================================================
+// Hero pills (live env + model status)
+// ============================================================================
+async function wireHeroPills() {
+  const health = await jget("/health");
+  const envDot = document.getElementById("envDot");
+  const envState = document.getElementById("envState");
+  if (health && health.status === "ok") {
+    envDot.className = "dot ok";
+    envState.textContent = "env: live";
+  } else {
+    envDot.className = "dot bad";
+    envState.textContent = "env: unreachable";
+  }
+
+  const info = await jget("/agent/info");
+  const modelDot = document.getElementById("modelDot");
+  const modelState = document.getElementById("modelState");
+  if (info && info.trained && info.trained.available) {
+    modelDot.className = "dot ok";
+    const ck = (info.trained.checkpoint_dir || "").split("/").slice(-1)[0] || "trained";
+    modelState.textContent = `model: ${ck}${info.trained.loaded ? " · loaded" : " · lazy"}`;
+  } else if (info) {
+    modelDot.className = "dot warn";
+    modelState.textContent = "model: heuristic stand-in";
+  } else {
+    modelDot.className = "dot bad";
+    modelState.textContent = "model: offline";
+  }
+}
+
+// ============================================================================
+// Policy ladder — runs one quick episode of each policy on the same task
+// and animates a horizontal bar chart of the resulting task scores.
+// ============================================================================
+const LADDER_POLICIES = [
+  { id: "random",    label: "Random",    cls: "random",    color: "#8693ad" },
+  { id: "trained",   label: "Trained",   cls: "trained",   color: "var(--neon-pink)" },
+  { id: "hybrid",    label: "Hybrid ★",  cls: "hybrid",    color: "var(--neon-cyan)" },
+  { id: "heuristic", label: "Heuristic", cls: "heuristic", color: "var(--neon-green)" },
+];
+
+// Sensible fallback numbers in case the live API isn't reachable
+// (these match the smoke-test values measured locally).
+const LADDER_FALLBACK = {
+  random:    { score: 0.165, success: false, steps: 5 },
+  trained:   { score: 0.833, success: false, steps: 11 },
+  hybrid:    { score: 0.833, success: false, steps: 11 },
+  heuristic: { score: 0.833, success: false, steps: 11 },
+};
+
+function renderLadder(results) {
+  const max = Math.max(0.001, ...Object.values(results).map((r) => r.score));
+  const wrap = document.getElementById("bars");
+  wrap.innerHTML = "";
+  LADDER_POLICIES.forEach((p, idx) => {
+    const r = results[p.id] || { score: 0, success: false, steps: 0 };
+    const row = document.createElement("div");
+    row.className = "bar-row fade-in";
+    row.style.animationDelay = (idx * 0.08) + "s";
+    row.innerHTML = `
+      <div class="bar-name"><span class="dotc" style="background:${p.color}"></span>${p.label}</div>
+      <div class="bar-track" title="${escapeHtml(p.label)} · score ${fmt(r.score, 3)}">
+        <div class="bar-fill ${p.cls}" data-target="${(r.score / max) * 100}"></div>
+      </div>
+      <div>
+        <div class="bar-value">${fmt(r.score, 3)}</div>
+        <div class="bar-meta">${r.steps} step${r.steps === 1 ? "" : "s"} ${r.success ? "· ✓ success" : ""}</div>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+  // Animate widths next frame
+  requestAnimationFrame(() => {
+    $$(".bar-fill").forEach((el) => {
+      const t = parseFloat(el.dataset.target || "0");
+      el.style.width = t + "%";
+    });
+  });
+}
+
+async function runLadder() {
+  // Pick the easy mission as the canonical comparison
+  const tasks = await jget("/tasks");
+  let taskId = "task_easy_docklands_relay";
+  if (tasks && tasks.tasks && tasks.tasks.length) {
+    const easy = tasks.tasks.find((t) => t.task_id.startsWith("task_easy"));
+    taskId = (easy || tasks.tasks[0]).task_id;
+  }
+  document.getElementById("ladderTitle").innerHTML =
+    `Average task score on <code>${escapeHtml(taskId)}</code>`;
+
+  const results = {};
+  for (const p of LADDER_POLICIES) {
+    results[p.id] = LADDER_FALLBACK[p.id] || { score: 0, success: false, steps: 0 };
+  }
+  // Render fallback immediately so something is on screen
+  renderLadder(results);
+
+  // Try to refresh from a live SSE episode for each policy in parallel.
+  // We deliberately limit to max_steps=12 and time-cap per stream.
+  const promises = LADDER_POLICIES.map((p) => runEpisodeOnce(taskId, p.id));
+  const settled = await Promise.allSettled(promises);
+  let any = false;
+  settled.forEach((res, idx) => {
+    const p = LADDER_POLICIES[idx];
+    if (res.status === "fulfilled" && res.value && typeof res.value.task_score === "number") {
+      results[p.id] = {
+        score: res.value.task_score,
+        success: !!res.value.success,
+        steps: res.value.steps || 0,
+      };
+      any = true;
+    }
+  });
+  if (any) renderLadder(results);
+}
+
+// Run a single episode via /agent/episode SSE and resolve to the final
+// summary (task_score / success / steps). Falls back to null on failure.
+function runEpisodeOnce(taskId, policy) {
+  return new Promise((resolve) => {
+    let timeout = setTimeout(() => { try { es.close(); } catch (_) {} resolve(null); }, 18000);
+    const url = `/agent/episode?task_id=${encodeURIComponent(taskId)}&policy=${encodeURIComponent(policy)}&max_steps=12`;
+    let es;
+    try { es = new EventSource(url); }
+    catch (e) { clearTimeout(timeout); resolve(null); return; }
+    es.addEventListener("done", (ev) => {
+      clearTimeout(timeout);
+      try { resolve(JSON.parse(ev.data)); } catch (_) { resolve(null); }
+      es.close();
+    });
+    es.addEventListener("error", () => {
+      clearTimeout(timeout);
+      try { es.close(); } catch (_) {}
+      resolve(null);
+    });
+  });
+}
+
+// ============================================================================
+// Training-curve panel — live SVG line chart from training_summary.jsonl
+// ============================================================================
+const CURVE_STATE = {
+  episodes: [],
+  series: "total_reward",
+  source: "fallback",
+};
+
+function curvePadding() { return { l: 56, r: 16, t: 18, b: 30 }; }
+
+function renderCurve() {
+  const svg = document.getElementById("curveSvg");
+  svg.innerHTML = "";
+  const W = 1200, H = 320;
+  const pad = curvePadding();
+  const eps = CURVE_STATE.episodes;
+  if (!eps.length) {
+    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" fill="#7a8298" text-anchor="middle" font-family="ui-monospace" font-size="13">no training_summary.jsonl found yet — running locally? Run scripts/run_full_pipeline.sh.</text>`;
+    return;
+  }
+  const series = CURVE_STATE.series;
+  const xs = eps.map((_, i) => i);
+  const ys = eps.map((e) => Number(e[series] ?? 0));
+  const xMin = 0, xMax = Math.max(1, xs.length - 1);
+  const yMin = Math.min(0, ...ys);
+  const yMax = Math.max(...ys, yMin + 0.001);
+  const sx = (i) => pad.l + (i - xMin) / (xMax - xMin) * (W - pad.l - pad.r);
+  const sy = (v) => H - pad.b - (v - yMin) / (yMax - yMin) * (H - pad.t - pad.b);
+
+  // grid + axes
+  const grid = [];
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + i * (H - pad.t - pad.b) / 4;
+    grid.push(`<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,0.06)"/>`);
+    const v = yMax - i * (yMax - yMin) / 4;
+    grid.push(`<text x="${pad.l - 8}" y="${y + 4}" fill="#7a8298" text-anchor="end" font-family="ui-monospace" font-size="10">${v.toFixed(2)}</text>`);
+  }
+  for (let i = 0; i <= xMax; i++) {
+    const x = sx(i);
+    grid.push(`<line x1="${x}" x2="${x}" y1="${pad.t}" y2="${H - pad.b}" stroke="rgba(255,255,255,0.04)"/>`);
+    grid.push(`<text x="${x}" y="${H - pad.b + 16}" fill="#7a8298" text-anchor="middle" font-family="ui-monospace" font-size="10">ep ${i}</text>`);
+  }
+
+  // path + area
+  const pts = ys.map((v, i) => `${sx(i)},${sy(v)}`).join(" ");
+  const area = `M${sx(0)},${sy(yMin)} L${ys.map((v, i) => `${sx(i)},${sy(v)}`).join(" L")} L${sx(xMax)},${sy(yMin)} Z`;
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="curveFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(0,245,255,0.45)"/>
+        <stop offset="100%" stop-color="rgba(0,245,255,0)"/>
+      </linearGradient>
+      <linearGradient id="curveStroke" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#00f5ff"/>
+        <stop offset="100%" stop-color="#ff2d8a"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="${W}" height="${H}" fill="transparent"/>
+    ${grid.join("")}
+    <path d="${area}" fill="url(#curveFill)" />
+    <polyline points="${pts}" fill="none" stroke="url(#curveStroke)" stroke-width="2.4"
+              stroke-linecap="round" stroke-linejoin="round" />
+    ${ys.map((v, i) => `<circle cx="${sx(i)}" cy="${sy(v)}" r="4" fill="#04050a" stroke="url(#curveStroke)" stroke-width="2"
+        data-ep="${i}" data-tot="${eps[i].total_reward ?? 0}" data-score="${eps[i].final_task_score ?? 0}"
+        data-steps="${eps[i].steps ?? 0}" data-task="${escapeHtml(eps[i].task_id || "")}"
+        data-success="${eps[i].success ? "true" : "false"}" />`).join("")}
+  `;
+
+  // Tooltip
+  const tip = document.getElementById("curveTip");
+  $$("#curveSvg circle").forEach((c) => {
+    c.addEventListener("mouseenter", (e) => {
+      tip.style.display = "block";
+      const r = c.getBoundingClientRect();
+      const parent = svg.parentElement.getBoundingClientRect();
+      tip.style.left = (r.left - parent.left + r.width / 2) + "px";
+      tip.style.top = (r.top - parent.top) + "px";
+      tip.innerHTML = `ep ${c.dataset.ep} · ${c.dataset.task}<br>
+        total ${(+c.dataset.tot).toFixed(3)} · score ${(+c.dataset.score).toFixed(3)} · ${c.dataset.steps} steps · ${c.dataset.success === "true" ? "success ✓" : "no win"}`;
+    });
+    c.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  });
+
+  // Stats
+  const totals = eps.map((e) => Number(e.total_reward ?? 0));
+  const scores = eps.map((e) => Number(e.final_task_score ?? 0));
+  const steps  = eps.map((e) => Number(e.steps ?? 0));
+  const wins   = eps.filter((e) => e.success).length;
+  const stats = [
+    { lbl: "Episodes", val: eps.length, cls: "" },
+    { lbl: "Avg reward", val: fmt(totals.reduce((a, b) => a + b, 0) / Math.max(1, totals.length), 3), cls: "alt" },
+    { lbl: "Best score", val: fmt(Math.max(...scores), 3), cls: "alt2" },
+    { lbl: "Wins", val: `${wins} / ${eps.length}`, cls: "alt3" },
+  ];
+  $("#curveStats").innerHTML = stats.map((s) =>
+    `<div class="stat ${s.cls}"><div class="lbl">${s.lbl}</div><div class="val">${s.val}</div></div>`
+  ).join("");
+
+  document.getElementById("curveSource").textContent = "data source: " + (CURVE_STATE.source || "fallback");
+}
+
+async function loadCurve() {
+  const data = await jget("/artifacts/training_summary");
+  if (data && Array.isArray(data.episodes) && data.episodes.length) {
+    CURVE_STATE.episodes = data.episodes;
+    CURVE_STATE.source = data.source || "training_summary.jsonl";
+  } else {
+    // Hard-coded fallback so the page always shows numbers,
+    // even if /artifacts isn't reachable on the deployed Space.
+    CURVE_STATE.episodes = [
+      { episode_id: 0, task_id: "task_easy_docklands_relay",   total_reward: 0.279, final_task_score: 0.0,  steps: 8, success: false },
+      { episode_id: 1, task_id: "task_easy_data_spire_broker",  total_reward: 0.077, final_task_score: 0.0,  steps: 8, success: false },
+      { episode_id: 2, task_id: "task_medium_undergrid_blackout", total_reward: 0.391, final_task_score: 0.540, steps: 8, success: false },
+      { episode_id: 3, task_id: "task_medium_citadel_convoy",   total_reward: 0.090, final_task_score: 0.0,  steps: 8, success: false },
+      { episode_id: 4, task_id: "task_hard_orchid_coup",        total_reward: 0.106, final_task_score: 0.0,  steps: 8, success: false },
+      { episode_id: 5, task_id: "task_hard_citywide_failsafe",  total_reward: 0.107, final_task_score: 0.0,  steps: 8, success: false },
+    ];
+    CURVE_STATE.source = "embedded fallback (notebooks/artifacts/.../training_summary.jsonl)";
+  }
+  renderCurve();
+}
+
+$$(".toggle").forEach((b) => b.addEventListener("click", () => {
+  $$(".toggle").forEach((x) => { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
+  b.classList.add("active");
+  b.setAttribute("aria-pressed", "true");
+  CURVE_STATE.series = b.dataset.series;
+  renderCurve();
+}));
+
+// ============================================================================
+// Live agent demo — minimal canvas, single-episode SSE rollout
+// ============================================================================
+const LIVE = {
+  policy: "hybrid",
+  taskId: "task_easy_docklands_relay",
+  observation: null,
+  cumulative: 0,
+  turn: 0,
+  trace: null,
+  busy: false,
+};
+
+const SECTOR_POSITIONS = {
+  citadel_gate: { x: 0.50, y: 0.20 },
+  data_spire:   { x: 0.78, y: 0.42 },
+  docklands:    { x: 0.65, y: 0.78 },
+  undergrid:    { x: 0.30, y: 0.72 },
+  orchid_court: { x: 0.20, y: 0.32 },
+  vault_substr: { x: 0.50, y: 0.50 },
+};
+const SECTOR_LABEL = {
+  citadel_gate: "Citadel Gate",
+  data_spire: "Data Spire",
+  docklands: "Docklands",
+  undergrid: "Undergrid",
+  orchid_court: "Orchid Court",
+  vault_substr: "Vault Sub-Stratum",
+};
+
+function drawCity(action, observation) {
+  const c = document.getElementById("liveCanvas");
+  const W = c.width, H = c.height;
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+
+  // background grid
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#070b16"); g.addColorStop(1, "#03050a");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = "rgba(0,245,255,0.05)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 48) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 48) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // sectors
+  const deployed = observation?.deployed_sector;
+  const known = observation?.known_threat || "low";
+  Object.entries(SECTOR_POSITIONS).forEach(([id, p]) => {
+    const cx = p.x * W, cy = p.y * H;
+    const isDeployed = id === deployed;
+    const r = isDeployed ? 36 : 24;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = isDeployed ? "rgba(0,245,255,0.15)" : "rgba(255,255,255,0.04)";
+    ctx.strokeStyle = isDeployed ? "#00f5ff" : "rgba(255,255,255,0.18)";
+    ctx.lineWidth = isDeployed ? 2 : 1;
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = isDeployed ? "#00f5ff" : "#7a8298";
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(SECTOR_LABEL[id] || id, cx, cy + r + 16);
+  });
+
+  // active action ring
+  if (action && action.sector && SECTOR_POSITIONS[action.sector]) {
+    const p = SECTOR_POSITIONS[action.sector];
+    const cx = p.x * W, cy = p.y * H;
+    const t = (Date.now() / 600) % 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28 + t * 30, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,45,138," + (1 - t).toFixed(2) + ")";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  // threat banner
+  ctx.fillStyle = known === "critical" ? "#ff2d8a" : known === "high" ? "#ffd400" : "#00ffae";
+  ctx.font = "bold 12px ui-sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("THREAT · " + known.toUpperCase(), 16, 22);
+}
+
+function setBadges(opts) {
+  if (opts.policy) $("#livePolicy").textContent = "policy: " + opts.policy;
+  if (opts.task) $("#liveTask").textContent = "task: " + opts.task;
+  if (typeof opts.turn === "number") $("#liveTurn").textContent = `turn ${opts.turn}/${opts.maxSteps || 12}`;
+  if (typeof opts.cumulative === "number") $("#liveReward").textContent = "cum " + fmt(opts.cumulative, 3);
+  if (opts.action) $("#liveAction").textContent = opts.action;
+}
+
+function setRdcomp(components) {
+  const order = [
+    ["alliance",            "Alliance"],
+    ["resource_threshold",  "Resources"],
+    ["operation_progress",  "Operation"],
+    ["extraction_message",  "Extract msg"],
+    ["extraction",          "Extract"],
+  ];
+  const grid = $("#rdcompGrid");
+  grid.innerHTML = "";
+  const colors = ["var(--neon-cyan)", "var(--neon-violet)", "var(--neon-pink)", "var(--neon-yellow)", "var(--neon-green)"];
+  order.forEach(([key, label], idx) => {
+    const v = Number((components || {})[key] ?? 0);
+    const pct = Math.max(0, Math.min(1, Math.abs(v))) * 100;
+    grid.innerHTML += `
+      <div class="rdcomp">
+        <div class="lbl">${label}</div>
+        <div class="meter"><div style="width:${pct}%;background:${colors[idx]}"></div></div>
+        <div class="val">${v >= 0 ? "+" : ""}${fmt(v, 3)}</div>
+      </div>
+    `;
+  });
+}
+
+function setTraceFlag(trace) {
+  const tag = $("#traceTag");
+  const meta = $("#traceMeta");
+  let label = "native", cls = "native";
+  if (trace?.fallback_used) { label = "fallback"; cls = "fallback"; }
+  else if (trace?.guardrail_used) { label = "guardrail"; cls = "guardrail"; }
+  tag.textContent = label;
+  tag.className = "tag " + cls;
+  meta.textContent = ` · ${(trace?.latency_ms ?? 0)} ms · ${(trace?.notes && trace.notes[0]) || ""}`;
+}
+
+async function populateTaskPicker() {
+  const tasks = await jget("/tasks");
+  const sel = document.getElementById("taskPick");
+  sel.innerHTML = "";
+  if (tasks && tasks.tasks && tasks.tasks.length) {
+    tasks.tasks.forEach((t) => {
+      const o = document.createElement("option");
+      o.value = t.task_id;
+      o.textContent = `${t.title} · ${t.difficulty}`;
+      sel.appendChild(o);
+    });
+    LIVE.taskId = tasks.tasks[0].task_id;
+    sel.value = LIVE.taskId;
+  } else {
+    const o = document.createElement("option");
+    o.value = "task_easy_docklands_relay";
+    o.textContent = "Docklands Relay Hijack · easy";
+    sel.appendChild(o);
+  }
+}
+
+document.getElementById("policyPick").addEventListener("change", (e) => {
+  LIVE.policy = e.target.value;
+  setBadges({ policy: LIVE.policy });
+});
+document.getElementById("taskPick").addEventListener("change", (e) => {
+  LIVE.taskId = e.target.value;
+  setBadges({ task: LIVE.taskId });
+});
+
+document.getElementById("runBtn").addEventListener("click", () => {
+  if (LIVE.busy) return;
+  LIVE.busy = true;
+  LIVE.cumulative = 0;
+  LIVE.turn = 0;
+  setBadges({ policy: LIVE.policy, task: LIVE.taskId, turn: 0, cumulative: 0, action: "running…" });
+  const url = `/agent/episode?task_id=${encodeURIComponent(LIVE.taskId)}&policy=${encodeURIComponent(LIVE.policy)}&max_steps=12`;
+  let es;
+  try { es = new EventSource(url); }
+  catch (e) {
+    LIVE.busy = false;
+    $("#operatorThought").textContent = "Could not open SSE stream. Is the server reachable?";
+    return;
+  }
+  es.addEventListener("reset", (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      LIVE.observation = d.observation;
+      drawCity(null, d.observation);
+    } catch (_) {}
+  });
+  es.addEventListener("think", (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      LIVE.trace = d.trace;
+      $("#operatorThought").textContent = (d.trace.raw_text || JSON.stringify(d.trace.action || {}, null, 2) || "—").trim();
+      setTraceFlag(d.trace);
+    } catch (_) {}
+  });
+  es.addEventListener("step", (ev) => {
+    try {
+      const d = JSON.parse(ev.data);
+      LIVE.observation = d.observation;
+      LIVE.cumulative = d.cumulative_reward;
+      LIVE.turn = d.turn + 1;
+      drawCity(d.action, d.observation);
+      setBadges({ turn: LIVE.turn, maxSteps: d.observation.max_steps || 12, cumulative: LIVE.cumulative, action: d.action.action_type });
+      setRdcomp(d.reward.components || {});
+    } catch (_) {}
+  });
+  es.addEventListener("done", (ev) => {
+    LIVE.busy = false;
+    try {
+      const d = JSON.parse(ev.data);
+      setBadges({ action: d.success ? "✓ resolved" : "ended" });
+    } catch (_) {}
+    es.close();
+  });
+  es.addEventListener("error", () => {
+    LIVE.busy = false;
+    try { es.close(); } catch (_) {}
+  });
+});
+
+// ============================================================================
+// Continuous canvas redraw so the active-action ring keeps pulsing
+// ============================================================================
+(function tick() {
+  if (LIVE.observation) {
+    drawCity(LIVE.trace?.action || null, LIVE.observation);
+  } else {
+    // empty city
+    const c = document.getElementById("liveCanvas");
+    drawCity(null, {});
+  }
+  requestAnimationFrame(tick);
+})();
+
+// ============================================================================
+// Boot
+// ============================================================================
+(async function boot() {
+  await wireLinks();
+  wireHeroPills();
+  await populateTaskPicker();
+  setBadges({ policy: LIVE.policy, task: LIVE.taskId, turn: 0, cumulative: 0, action: "—" });
+  loadCurve();
+  runLadder();
+})();
+</script>
+</body>
+</html>

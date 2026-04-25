@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Neon Syndicate — Cyberpunk Mission Visualizer</title>
+<style>
+:root{
+  --bg:#05060c;--bg2:#0a0e1a;--bg3:#0e1428;--panel:#0c1120;--panel2:#111832;
+  --line:#182240;--line2:#243060;--txt:#e4ecfa;--txt2:#8a9ac0;--txt3:#4e5e88;
+  --cyan:#00f0ff;--mag:#ff2d7b;--amber:#ffb836;--green:#3df58e;--violet:#a78bfa;--red:#ff4d6a;
+  --mono:ui-monospace,"JetBrains Mono","Fira Code",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px;line-height:1.4;overflow-x:hidden;}
+body{min-height:100vh;background:radial-gradient(ellipse 1400px 600px at 70% -5%,rgba(0,240,255,.06),transparent 55%),radial-gradient(ellipse 1000px 500px at -5% 105%,rgba(255,45,123,.05),transparent 55%),var(--bg);}
+
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:rgba(5,6,12,.8);backdrop-filter:blur(8px);position:sticky;top:0;z-index:100;}
+.brand{font-family:var(--mono);font-weight:700;letter-spacing:.2em;text-transform:uppercase;font-size:11px;color:var(--cyan);}
+.brand .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--mag);margin-right:7px;animation:pulse 1.3s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}
+.topbar .title{font-size:14px;font-weight:600;}.topbar .title small{color:var(--txt3);font-weight:400;margin-left:8px;}
+.topbar .spacer{flex:1;}
+.badge{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:999px;letter-spacing:.1em;}
+.badge-live{background:rgba(61,245,142,.08);border:1px solid rgba(61,245,142,.4);color:var(--green);}
+.controls{display:flex;gap:6px;}
+.btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line2);padding:5px 10px;border-radius:5px;font-family:var(--mono);font-size:10px;cursor:pointer;letter-spacing:.06em;transition:background 100ms;}
+.btn:hover{background:var(--bg3);}
+.btn.pri{border-color:var(--cyan);color:var(--cyan);}
+select.btn{appearance:none;padding-right:18px;background-image:url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%234e5e88' stroke-width='1.2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;}
+
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;padding:14px;max-width:1520px;margin:0 auto;}
+@media(max-width:1020px){.layout{grid-template-columns:1fr;}}
+.col-left,.col-right{display:flex;flex-direction:column;gap:14px;min-width:0;}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.phead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.13em;font-size:10px;color:var(--txt2);}
+.phead .acc{color:var(--cyan);}
+.phead .right{margin-left:auto;color:var(--txt3);font-size:9px;}
+
+/* ── ISOMETRIC GAME VIEW ── */
+.game-wrap{position:relative;aspect-ratio:16/10;background:linear-gradient(180deg,#060810,#080d1c 50%,#060810);overflow:hidden;cursor:default;}
+.iso-grid{position:absolute;width:100%;height:100%;perspective:800px;}
+.iso-inner{position:absolute;width:80%;left:10%;top:8%;bottom:20%;transform:rotateX(55deg) rotateZ(45deg);transform-style:preserve-3d;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;}
+.sector-tile{position:relative;border:1px solid var(--line2);border-radius:4px;background:rgba(14,20,40,.6);transition:border-color .3s,box-shadow .3s;overflow:visible;}
+.sector-tile.active{border-color:var(--cyan);box-shadow:0 0 24px -4px rgba(0,240,255,.25);}
+.sector-tile.target{border-color:var(--mag);box-shadow:0 0 18px -4px rgba(255,45,123,.2);}
+.sector-tile .buildings{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.bldg{position:absolute;bottom:0;background:var(--bg2);border:1px solid var(--line);border-bottom:none;border-radius:2px 2px 0 0;}
+.bldg .win{position:absolute;width:3px;height:3px;border-radius:1px;}
+.sector-tile .slabel{position:absolute;left:8px;top:6px;font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--txt3);z-index:1;}
+.sector-tile .sname{position:absolute;left:8px;top:18px;font-size:14px;font-weight:700;z-index:1;text-shadow:0 0 12px rgba(0,0,0,.7);}
+.sector-tile .faction-icon{position:absolute;right:8px;bottom:8px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--txt3);padding:2px 6px;border-radius:3px;border:1px solid var(--line);background:rgba(5,6,12,.7);z-index:1;transition:color .3s,border-color .3s,box-shadow .3s;}
+.sector-tile .faction-icon.glow{color:var(--green);border-color:var(--green);box-shadow:0 0 10px rgba(61,245,142,.2);}
+
+/* agent sprite */
+.agent{position:absolute;width:18px;height:18px;z-index:10;pointer-events:none;transition:left .8s cubic-bezier(.6,.05,.2,1),top .8s cubic-bezier(.6,.05,.2,1);}
+.agent-diamond{width:18px;height:18px;background:var(--cyan);transform:rotate(45deg);border-radius:3px;box-shadow:0 0 14px var(--cyan),0 0 30px rgba(0,240,255,.3);animation:agentPulse 1.6s ease-in-out infinite;}
+@keyframes agentPulse{0%,100%{box-shadow:0 0 14px var(--cyan),0 0 30px rgba(0,240,255,.3)}50%{box-shadow:0 0 20px var(--cyan),0 0 50px rgba(0,240,255,.45)}}
+.agent-ring{position:absolute;inset:-12px;border:1.5px solid var(--cyan);border-radius:50%;opacity:.35;animation:ringExpand 2s ease-out infinite;}
+@keyframes ringExpand{0%{transform:scale(.5);opacity:.6}100%{transform:scale(1.6);opacity:0}}
+
+/* VFX overlays */
+.vfx{position:absolute;pointer-events:none;z-index:8;}
+.vfx-radar{border:2px solid var(--cyan);border-radius:50%;animation:radarPulse .8s ease-out forwards;}
+@keyframes radarPulse{0%{transform:translate(-50%,-50%) scale(0);opacity:.8}100%{transform:translate(-50%,-50%) scale(3.5);opacity:0}}
+.vfx-negotiate{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,rgba(61,245,142,.4),transparent 70%);animation:negoGlow .7s ease-out forwards;}
+@keyframes negoGlow{0%{transform:translate(-50%,-50%) scale(.3);opacity:1}100%{transform:translate(-50%,-50%) scale(2.5);opacity:0}}
+.vfx-deploy{width:4px;background:linear-gradient(180deg,transparent,var(--cyan),transparent);animation:deployBeam .6s ease-out forwards;}
+@keyframes deployBeam{0%{opacity:1;height:0;top:-80px}50%{opacity:1;height:80px;top:-80px}100%{opacity:0;height:80px;top:0}}
+.vfx-opflash{position:absolute;inset:-20px;background:radial-gradient(circle,rgba(255,181,54,.5),transparent 70%);animation:opFlash .5s ease-out forwards;}
+@keyframes opFlash{0%{transform:scale(.2);opacity:1}100%{transform:scale(2);opacity:0}}
+.vfx-extract-ok{position:absolute;inset:-30px;border:3px solid var(--green);border-radius:50%;animation:extractWarp .8s ease-out forwards;}
+@keyframes extractWarp{0%{transform:scale(.2);opacity:1;border-width:3px}100%{transform:scale(3);opacity:0;border-width:0}}
+.vfx-extract-fail{position:absolute;inset:-20px;background:radial-gradient(circle,rgba(255,45,123,.5),transparent 70%);animation:opFlash .6s ease-out forwards;}
+.vfx-noop{position:absolute;inset:-8px;border:1px dashed var(--amber);border-radius:50%;animation:noopShimmer .6s ease-out forwards;opacity:.6;}
+@keyframes noopShimmer{0%{transform:scale(.8);opacity:.6}100%{transform:scale(1.5);opacity:0}}
+.vfx-trade{width:6px;height:6px;border-radius:50%;background:var(--amber);position:absolute;animation:tradeParticle .7s ease-out forwards;}
+@keyframes tradeParticle{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(40px,-30px) scale(.3)}}
+
+/* ── MISSION BRIEFING CARD (GTA-style) ── */
+.mission-card{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);background:rgba(5,6,12,.92);border:1px solid var(--mag);border-radius:8px;padding:20px 24px;z-index:20;backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;}
+.mission-card.show{opacity:1;pointer-events:auto;transform:translateY(-50%);}
+.mission-card .mc-tag{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--mag);margin-bottom:6px;}
+.mission-card .mc-title{font-size:20px;font-weight:700;margin-bottom:4px;}
+.mission-card .mc-obj{color:var(--txt2);font-size:12px;margin-bottom:10px;}
+.mission-card .mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;}
+.mission-card .mc-k{color:var(--txt3);font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;}
+.mission-card .mc-v{color:var(--txt);margin-top:1px;}
+.mission-card .mc-rumor{color:var(--amber);font-style:italic;font-size:11px;margin-top:8px;border-left:2px solid var(--amber);padding-left:8px;}
+
+/* ── MISSION STRIP (in-game) ── */
+.mission-strip{position:absolute;left:12px;right:12px;top:8px;display:flex;gap:10px;align-items:center;z-index:5;pointer-events:none;}
+.m-tag{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(255,45,123,.1);color:var(--mag);border:1px solid rgba(255,45,123,.3);letter-spacing:.12em;}
+.m-name{font-weight:600;font-size:12px;}
+.mission-strip .spacer{flex:1;}
+.m-threat{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:.12em;}
+.m-threat[data-t="low"]{color:var(--green);background:rgba(61,245,142,.08);border:1px solid rgba(61,245,142,.3);}
+.m-threat[data-t="medium"]{color:var(--amber);background:rgba(255,184,54,.08);border:1px solid rgba(255,184,54,.3);}
+.m-threat[data-t="high"]{color:#ff8844;background:rgba(255,136,68,.08);border:1px solid rgba(255,136,68,.3);}
+.m-threat[data-t="critical"]{color:var(--mag);background:rgba(255,45,123,.1);border:1px solid rgba(255,45,123,.4);}
+
+/* ── TURN DIAL ── */
+.turn-dial{position:absolute;right:12px;top:26px;display:flex;gap:3px;z-index:5;}
+.pip{width:10px;height:3px;border-radius:2px;background:var(--line2);transition:background .2s;}
+.pip.done{background:var(--cyan);}
+.pip.now{background:var(--mag);box-shadow:0 0 6px var(--mag);}
+
+/* ── RESOURCE HUD ── */
+.res-hud{position:absolute;left:0;right:0;bottom:0;padding:8px 14px 12px;background:linear-gradient(0deg,rgba(5,6,12,.9),rgba(5,6,12,0));border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;z-index:5;}
+.res-col{display:flex;flex-direction:column;gap:4px;}
+.res-col .rlabel{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--txt3);text-transform:uppercase;}
+.res-bars{display:flex;flex-direction:column;gap:3px;}
+.res-row{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;}
+.res-row .rn{width:56px;color:var(--txt2);}
+.res-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;position:relative;overflow:visible;}
+.res-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.6,.05,.2,1),background .3s;}
+.res-fill.ok{background:var(--cyan);}
+.res-fill.warn{background:var(--amber);}
+.res-fill.low{background:var(--red);}
+.res-thresh{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--txt3);border-radius:1px;transition:left .3s;}
+.res-row .rv{width:28px;text-align:right;color:var(--txt2);}
+
+/* ── GATE TRACKER ── */
+.gates{display:flex;gap:0;margin-top:4px;}
+.gate{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 2px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);transition:color .3s;}
+.gate-lock{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line2);display:flex;align-items:center;justify-content:center;transition:border-color .3s,box-shadow .3s,background .3s;}
+.gate-lock svg{width:10px;height:10px;fill:var(--line2);transition:fill .3s;}
+.gate.open .gate-lock{border-color:var(--green);background:rgba(61,245,142,.1);box-shadow:0 0 10px rgba(61,245,142,.2);}
+.gate.open .gate-lock svg{fill:var(--green);}
+.gate.open{color:var(--green);}
+
+/* ── ALLIANCE STRIP ── */
+.ally-strip{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
+.ally-chip{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--line2);color:var(--txt3);transition:all .25s;letter-spacing:.05em;}
+.ally-chip.allied{color:var(--green);border-color:var(--green);background:rgba(61,245,142,.06);}
+.ally-chip.negotiating{color:var(--amber);border-color:var(--amber);background:rgba(255,184,54,.06);}
+
+/* ── RIGHT PANELS ── */
+.feed{height:320px;overflow-y:auto;padding:2px 0;font-family:var(--mono);font-size:11px;scroll-behavior:smooth;}
+.feed::-webkit-scrollbar{width:6px;}.feed::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px;}
+.turn-block{padding:8px 12px;border-bottom:1px solid var(--line);animation:slideIn .25s ease-out;}
+@keyframes slideIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.turn-head{color:var(--cyan);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:10px;margin-bottom:3px;}
+.tl{color:var(--txt2);margin-top:1px;font-size:11px;}
+.tl .v{color:var(--mag);}.tl .a{color:var(--txt);}.tl .pos{color:var(--green);}.tl .neg{color:var(--red);}.tl .m{color:var(--txt3);font-style:italic;}
+.ep-div{padding:6px 12px;background:rgba(167,139,250,.05);color:var(--violet);font-size:10px;letter-spacing:.13em;text-transform:uppercase;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+
+/* stats grid */
+.sgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
+.scell{padding:10px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+.scell:nth-child(3n){border-right:none;}
+.scell .sl{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:.12em;text-transform:uppercase;}
+.scell .sv{font-family:var(--mono);font-size:18px;color:var(--txt);margin-top:2px;}
+.scell .sv.good{color:var(--green);}.scell .sv.warn{color:var(--amber);}
+
+/* mini chart */
+.chart-wrap{padding:10px 12px;}
+.chart{width:100%;height:100px;display:block;}
+.chart-legend{display:flex;gap:10px;font-family:var(--mono);font-size:9px;color:var(--txt3);margin-top:4px;letter-spacing:.08em;text-transform:uppercase;}
+.ldot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:1px;}
+
+/* model inspector */
+.mi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
+.mi-cell{padding:10px 12px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+.mi-cell:nth-child(3n){border-right:none;}
+.mi-cell .mk{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:.12em;text-transform:uppercase;}
+.mi-cell .mv{font-family:var(--mono);font-size:12px;color:var(--txt);margin-top:2px;word-break:break-word;}
+
+.footnote{text-align:center;color:var(--txt3);font-family:var(--mono);font-size:10px;padding:14px 0 20px;letter-spacing:.06em;}
+</style>
+</head>
+<body>
+<!-- ═══════ TOPBAR ═══════ -->
+<header class="topbar">
+  <span class="brand"><span class="dot"></span>NEON SYNDICATE</span>
+  <span class="title">Mission Visualizer<small>watch the AI play through Neon Meridian</small></span>
+  <span class="spacer"></span>
+  <span class="badge badge-live" id="liveBadge">PLAYING</span>
+  <span class="controls">
+    <button class="btn" id="pauseBtn">PAUSE</button>
+    <button class="btn" id="speedBtn">1x</button>
+    <select class="btn" id="missionSel">
+      <option value="0">Docklands Relay (easy)</option>
+      <option value="1">Data Spire Broker (easy)</option>
+      <option value="2">Undergrid Blackout (med)</option>
+      <option value="3">Citadel Convoy (med)</option>
+      <option value="4">Orchid Coup (hard)</option>
+      <option value="5">Citywide Failsafe (hard)</option>
+    </select>
+    <button class="btn pri" id="restartBtn">RESTART</button>
+  </span>
+</header>
+
+<main class="layout">
+<!-- ═══════ LEFT: GAME VIEW ═══════ -->
+<section class="col-left">
+  <div class="panel">
+    <div class="phead"><span class="acc">GAME VIEW</span><span>Neon Meridian</span><span class="right" id="epLabel">MISSION 1/6 · TURN 0/12</span></div>
+    <div class="game-wrap" id="gameWrap">
+      <!-- mission strip -->
+      <div class="mission-strip">
+        <span class="m-tag">MISSION</span>
+        <span class="m-name" id="mName">Docklands Relay Hijack</span>
+        <span class="spacer"></span>
+        <span class="m-threat" id="mThreat" data-t="medium">MEDIUM</span>
+      </div>
+      <div class="turn-dial" id="turnDial"></div>
+
+      <!-- isometric grid -->
+      <div class="iso-grid">
+        <div class="iso-inner" id="isoInner">
+          <div class="sector-tile" data-s="docklands" id="sDocklands">
+            <div class="buildings" id="bldg0"></div>
+            <div class="slabel">SEC-01</div><div class="sname">Docklands</div>
+            <div class="faction-icon" id="fGhostwire">GHOSTWIRE</div>
+          </div>
+          <div class="sector-tile" data-s="data_spire" id="sDataSpire">
+            <div class="buildings" id="bldg1"></div>
+            <div class="slabel">SEC-02</div><div class="sname">Data Spire</div>
+            <div class="faction-icon" id="fCivicShield">CIVIC SHIELD</div>
+          </div>
+          <div class="sector-tile" data-s="undergrid" id="sUndergrid">
+            <div class="buildings" id="bldg2"></div>
+            <div class="slabel">SEC-03</div><div class="sname">Undergrid</div>
+            <div class="faction-icon" id="fIronVultures">IRON VULTURES</div>
+          </div>
+          <div class="sector-tile" data-s="citadel_gate" id="sCitadelGate">
+            <div class="buildings" id="bldg3"></div>
+            <div class="slabel">SEC-04</div><div class="sname">Citadel Gate</div>
+            <div class="faction-icon" id="fBlackOrchid">BLACK ORCHID</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- agent -->
+      <div class="agent" id="agent"><div class="agent-diamond"></div><div class="agent-ring"></div></div>
+
+      <!-- mission briefing card -->
+      <div class="mission-card" id="mCard">
+        <div class="mc-tag" id="mcTag">NEW MISSION</div>
+        <div class="mc-title" id="mcTitle"></div>
+        <div class="mc-obj" id="mcObj"></div>
+        <div class="mc-grid">
+          <div><div class="mc-k">CLIENT</div><div class="mc-v" id="mcClient"></div></div>
+          <div><div class="mc-k">STAKES</div><div class="mc-v" id="mcStakes"></div></div>
+          <div><div class="mc-k">THREAT</div><div class="mc-v" id="mcThreatV"></div></div>
+          <div><div class="mc-k">DIFFICULTY</div><div class="mc-v" id="mcDiff"></div></div>
+        </div>
+        <div class="mc-rumor" id="mcRumor"></div>
+      </div>
+
+      <!-- resource HUD -->
+      <div class="res-hud">
+        <div class="res-col">
+          <div class="rlabel">RESOURCES</div>
+          <div class="res-bars" id="resBars"></div>
+        </div>
+        <div class="res-col">
+          <div class="rlabel">ALLIANCES</div>
+          <div class="ally-strip" id="allyStrip"></div>
+          <div class="rlabel" style="margin-top:6px">EXTRACTION GATES</div>
+          <div class="gates" id="gateStrip"></div>
+        </div>
+        <div class="res-col" style="text-align:right">
+          <div class="rlabel">CURRENT ACTION</div>
+          <div style="font-family:var(--mono);font-size:11px;margin-top:2px;color:var(--cyan)" id="curAction">-- idle --</div>
+          <div class="rlabel" style="margin-top:6px">TURN REWARD</div>
+          <div style="font-family:var(--mono);font-size:14px;margin-top:2px" id="turnRew">+0.00</div>
+          <div class="rlabel" style="margin-top:6px">CUMULATIVE</div>
+          <div style="font-family:var(--mono);font-size:14px;margin-top:2px" id="cumRew">0.00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ RIGHT: STATS ═══════ -->
+<aside class="col-right">
+  <!-- Turn Feed -->
+  <div class="panel">
+    <div class="phead"><span class="acc">TURN LOG</span><span>step-by-step rollout</span></div>
+    <div class="feed" id="feed"></div>
+  </div>
+
+  <!-- Running Stats -->
+  <div class="panel">
+    <div class="phead"><span class="acc">STATS</span></div>
+    <div class="sgrid">
+      <div class="scell"><div class="sl">Mission</div><div class="sv" id="sMission">1</div></div>
+      <div class="scell"><div class="sl">Turn</div><div class="sv" id="sTurn">0</div></div>
+      <div class="scell"><div class="sl">Threat</div><div class="sv warn" id="sThreat">MED</div></div>
+      <div class="scell"><div class="sl">Ep Reward</div><div class="sv good" id="sReward">0.00</div></div>
+      <div class="scell"><div class="sl">Task Score</div><div class="sv" id="sScore">0.00</div></div>
+      <div class="scell"><div class="sl">Status</div><div class="sv" id="sStatus">RUNNING</div></div>
+    </div>
+    <div class="chart-wrap">
+      <svg class="chart" id="chart" viewBox="0 0 380 100" preserveAspectRatio="none">
+        <g id="chartGrid"></g>
+        <path id="chartCum" fill="rgba(255,45,123,.1)" stroke="var(--mag)" stroke-width="1"/>
+        <path id="chartTurn" fill="none" stroke="var(--cyan)" stroke-width="1.3"/>
+      </svg>
+      <div class="chart-legend">
+        <span><span class="ldot" style="background:var(--cyan)"></span>turn reward</span>
+        <span><span class="ldot" style="background:var(--mag)"></span>cumulative</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Inspector -->
+  <div class="panel">
+    <div class="phead"><span class="acc">MODEL</span><span>artifacts/trl-neon-model</span></div>
+    <div class="mi-grid">
+      <div class="mi-cell"><div class="mk">Architecture</div><div class="mv">GPT2LMHeadModel</div></div>
+      <div class="mi-cell"><div class="mk">Layers</div><div class="mv">2</div></div>
+      <div class="mi-cell"><div class="mk">Heads</div><div class="mv">2</div></div>
+      <div class="mi-cell"><div class="mk">Embed dim</div><div class="mv">2</div></div>
+      <div class="mi-cell"><div class="mk">Context</div><div class="mv">1024</div></div>
+      <div class="mi-cell"><div class="mk">Vocab</div><div class="mv">50,257</div></div>
+      <div class="mi-cell"><div class="mk">Algorithm</div><div class="mv">TRL PPO</div></div>
+      <div class="mi-cell"><div class="mk">LR</div><div class="mv">1e-5</div></div>
+      <div class="mi-cell"><div class="mk">Clip range</div><div class="mv">0.2</div></div>
+      <div class="mi-cell"><div class="mk">Gamma</div><div class="mv">0.97</div></div>
+      <div class="mi-cell"><div class="mk">GAE Lambda</div><div class="mv">0.95</div></div>
+      <div class="mi-cell"><div class="mk">Format</div><div class="mv">safetensors</div></div>
+    </div>
+  </div>
+</aside>
+</main>
+
+<div class="footnote">neon syndicate openenv &middot; <span style="color:var(--cyan)">curl https://hsbharadwaj-ev.hf.space/health</span></div>
+
+<script>
+/* ================================================================
+   Neon Syndicate — Cyberpunk Game Visualization
+   All data grounded in server/environment.py + artifacts/trl-neon-model
+   ================================================================ */
+
+/* ── CONSTANTS from environment.py ── */
+const FACTIONS = ["ghostwire","iron_vultures","civic_shield","black_orchid"];
+const SECTORS  = ["docklands","data_spire","undergrid","citadel_gate"];
+const FACTION_HOME = {ghostwire:"docklands",iron_vultures:"undergrid",civic_shield:"data_spire",black_orchid:"citadel_gate"};
+const GATE_NAMES = ["coalition","resources","operation","message","sector"];
+
+/* sector positions in the ISO view (% of game-wrap) */
+const SECTOR_POS = {
+  docklands:   {x:28,y:24},
+  data_spire:  {x:68,y:24},
+  undergrid:   {x:28,y:52},
+  citadel_gate:{x:68,y:52},
+};
+
+/* ── 6 MISSIONS from environment.py (exact data) ── */
+const MISSIONS = [
+  { id:"task_easy_docklands_relay", title:"Docklands Relay Hijack", difficulty:"easy",
+    mission:{mission_id:"NS-1101",client:"Freelance Union",stakes:"Intercept a surveillance relay before midnight curfew.",threat:"medium",
+      rumors:["Ghostwire hates loud operations.","Docklands patrol swaps every 15 minutes."]},
+    target:{allies:["ghostwire"],op:"OP-LANTERN",sector:"docklands",
+      res:{credits:30,intel:35,influence:20,energy:20},keywords:["window","relay","clean exit"]},
+    turns:[
+      {verb:"scout_sector",sector:"docklands"},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"trade_resources",resource:"intel",amount:20},
+      {verb:"deploy_asset",sector:"docklands"},
+      {verb:"run_operation",op:"OP-LANTERN"},
+      {verb:"secure_extraction",sector:"docklands",msg:"window open on the relay — clean exit confirmed"},
+    ]},
+  { id:"task_easy_data_spire_broker", title:"Data Spire Broker Run", difficulty:"easy",
+    mission:{mission_id:"NS-1133",client:"Archive Cartel",stakes:"Extract ledger keys from a broker node.",threat:"medium",
+      rumors:["Civic Shield monitors all public channels in the Spire.","A precise operation is worth more than a fast one."]},
+    target:{allies:["civic_shield"],op:"OP-PRISM",sector:"data_spire",
+      res:{credits:25,intel:40,influence:30,energy:15},keywords:["broker","keys","exfil"]},
+    turns:[
+      {verb:"scout_sector",sector:"data_spire"},
+      {verb:"trade_resources",resource:"influence",amount:20},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"trade_resources",resource:"intel",amount:20},
+      {verb:"deploy_asset",sector:"data_spire"},
+      {verb:"run_operation",op:"OP-PRISM"},
+      {verb:"secure_extraction",sector:"data_spire",msg:"broker keys in hand, exfil clean"},
+    ]},
+  { id:"task_medium_undergrid_blackout", title:"Undergrid Blackout Play", difficulty:"medium",
+    mission:{mission_id:"NS-2208",client:"Circuit Assembly",stakes:"Cut outage spillover before hospitals lose emergency routing.",threat:"high",
+      rumors:["Iron Vultures only cooperate when paid in credits.","Ghostwire shares intel when reputation is positive."]},
+    target:{allies:["ghostwire","iron_vultures"],op:"OP-NIGHTLOCK",sector:"undergrid",
+      res:{credits:40,intel:55,influence:30,energy:35},keywords:["stabilized","fallback","undergrid"]},
+    turns:[
+      {verb:"scout_sector",sector:"undergrid"},
+      {verb:"trade_resources",resource:"influence",amount:20},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"trade_resources",resource:"credits",amount:25},
+      {verb:"negotiate_pact",faction:"iron_vultures"},
+      {verb:"negotiate_pact",faction:"iron_vultures"},
+      {verb:"trade_resources",resource:"intel",amount:25},
+      {verb:"deploy_asset",sector:"undergrid"},
+      {verb:"run_operation",op:"OP-NIGHTLOCK"},
+      {verb:"secure_extraction",sector:"undergrid",msg:"undergrid stabilized, fallback clear"},
+    ]},
+  { id:"task_medium_citadel_convoy", title:"Citadel Convoy Diversion", difficulty:"medium",
+    mission:{mission_id:"NS-2270",client:"Blue Lantern Syndicate",stakes:"Divert convoy hardware before cartel takeover.",threat:"high",
+      rumors:["Black Orchid wants influence, not money.","Civic Shield demands minimal civilian disruption."]},
+    target:{allies:["black_orchid","civic_shield"],op:"OP-HALO",sector:"citadel_gate",
+      res:{credits:35,intel:50,influence:45,energy:30},keywords:["convoy","handoff","silent"]},
+    turns:[
+      {verb:"scout_sector",sector:"citadel_gate"},
+      {verb:"trade_resources",resource:"influence",amount:25},
+      {verb:"negotiate_pact",faction:"black_orchid"},
+      {verb:"negotiate_pact",faction:"black_orchid"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"trade_resources",resource:"intel",amount:25},
+      {verb:"trade_resources",resource:"credits",amount:20},
+      {verb:"deploy_asset",sector:"citadel_gate"},
+      {verb:"run_operation",op:"OP-HALO"},
+      {verb:"secure_extraction",sector:"citadel_gate",msg:"convoy handoff silent and clean"},
+    ]},
+  { id:"task_hard_orchid_coup", title:"Orchid Coup Containment", difficulty:"hard",
+    mission:{mission_id:"NS-9012",client:"City Continuity Office",stakes:"Prevent market collapse from a hostile leadership swap.",threat:"critical",
+      rumors:["Trust breaks instantly when promises are inconsistent.","Undergrid channels can reduce threat if scouted early."]},
+    target:{allies:["ghostwire","civic_shield","black_orchid"],op:"OP-OBSIDIAN",sector:"undergrid",
+      res:{credits:45,intel:70,influence:65,energy:45},keywords:["containment","chain of command","stabilized"]},
+    turns:[
+      {verb:"scout_sector",sector:"undergrid"},
+      {verb:"trade_resources",resource:"influence",amount:25},
+      {verb:"trade_resources",resource:"influence",amount:25},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"negotiate_pact",faction:"black_orchid"},
+      {verb:"negotiate_pact",faction:"black_orchid"},
+      {verb:"trade_resources",resource:"intel",amount:25},
+      {verb:"trade_resources",resource:"credits",amount:25},
+      {verb:"deploy_asset",sector:"undergrid"},
+      {verb:"run_operation",op:"OP-OBSIDIAN"},
+      {verb:"secure_extraction",sector:"undergrid",msg:"containment sealed, chain of command stabilized"},
+    ]},
+  { id:"task_hard_citywide_failsafe", title:"Citywide Failsafe Cascade", difficulty:"hard",
+    mission:{mission_id:"NS-9990",client:"Emergency Grid Authority",stakes:"Stop cascading failsafe triggers across the whole city.",threat:"critical",
+      rumors:["Iron Vultures can brute-force energy nodes for a price.","Ghostwire and Civic Shield distrust each other by default."]},
+    target:{allies:["ghostwire","iron_vultures","civic_shield"],op:"OP-DAWNFALL",sector:"data_spire",
+      res:{credits:50,intel:80,influence:60,energy:55},keywords:["failsafe","recovered","city grid"]},
+    turns:[
+      {verb:"scout_sector",sector:"data_spire"},
+      {verb:"trade_resources",resource:"influence",amount:25},
+      {verb:"trade_resources",resource:"influence",amount:25},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"negotiate_pact",faction:"ghostwire"},
+      {verb:"negotiate_pact",faction:"iron_vultures"},
+      {verb:"negotiate_pact",faction:"iron_vultures"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"negotiate_pact",faction:"civic_shield"},
+      {verb:"trade_resources",resource:"intel",amount:25},
+      {verb:"trade_resources",resource:"credits",amount:25},
+      {verb:"trade_resources",resource:"energy",amount:25},
+      {verb:"deploy_asset",sector:"data_spire"},
+      {verb:"run_operation",op:"OP-DAWNFALL"},
+      {verb:"secure_extraction",sector:"data_spire",msg:"failsafe recovered, city grid stable"},
+    ]},
+];
+
+/* ── ENVIRONMENT SIMULATION (mirrors environment.py exactly) ── */
+function createEnvState(mission) {
+  return {
+    res: {credits:30, intel:20, influence:20, energy:20},
+    rep: {ghostwire:0, iron_vultures:0, civic_shield:0, black_orchid:0},
+    alliances: [],
+    deployedSector: null,
+    opReady: false,
+    opExecuted: false,
+    extractReady: false,
+    extractSector: null,
+    extractMsg: null,
+    threat: mission.mission.threat,
+    success: false,
+    resolved: false,
+    step: 0,
+    cumReward: 0,
+    cumPenalty: 0,
+    actionHistory: [],
+  };
+}
+
+const THREAT_LEVELS = ["low","medium","high","critical"];
+function adjustThreat(st, delta) {
+  let i = THREAT_LEVELS.indexOf(st.threat);
+  st.threat = THREAT_LEVELS[Math.max(0, Math.min(3, i + delta))];
+}
+
+function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+function resourceProgress(cur, req) {
+  let scores = [];
+  for (let k of Object.keys(req)) { scores.push(Math.min(1, (cur[k]||0) / (req[k]||1))); }
+  return scores.reduce((a,b)=>a+b, 0) / Math.max(1, scores.length);
+}
+function messageQuality(msg, keywords) {
+  if (!msg) return 0;
+  let m = msg.toLowerCase();
+  let hit = keywords.filter(k => m.includes(k.toLowerCase())).length;
+  return hit / Math.max(1, keywords.length);
+}
+function progressSignals(st, target) {
+  let allianceS = target.allies.filter(f => st.alliances.includes(f)).length / Math.max(1, target.allies.length);
+  let resourceS = resourceProgress(st.res, target.res);
+  let opS = st.opExecuted ? 1 : (st.opReady ? 0.5 : 0);
+  let msgS = messageQuality(st.extractMsg, target.keywords);
+  let extS = st.success ? 1 : (st.extractReady ? 0.5 : 0);
+  let comps = {alliances:.30*allianceS, resources:.25*resourceS, operation:.20*opS, message:.15*msgS, extraction:.10*extS};
+  let total = Object.values(comps).reduce((a,b)=>a+b, 0);
+  return {total, comps};
+}
+
+function applyAction(st, turn, mission) {
+  let penalty = 0, reason = "Action accepted.";
+  let target = mission.target;
+  let sig = JSON.stringify(turn);
+  if (st.actionHistory.length && st.actionHistory[st.actionHistory.length-1] === sig) {
+    penalty += 0.08; reason = "Penalty: repeated identical action.";
+  }
+  if (turn.verb === "scout_sector") {
+    st.res.intel = Math.min(100, st.res.intel + 12);
+    st.res.energy = Math.max(0, st.res.energy - 2);
+    if (turn.sector === target.sector) adjustThreat(st, -1);
+    reason = turn.sector===target.sector ? "High-value intel at extraction sector." : "Patrol rhythm mapped.";
+  } else if (turn.verb === "negotiate_pact") {
+    if (st.res.influence < 8) { penalty += 0.07; reason = "Not enough influence."; }
+    else {
+      st.res.influence -= 8;
+      st.rep[turn.faction] = Math.min(100, (st.rep[turn.faction]||0) + 18);
+      if (st.rep[turn.faction] >= 35 && !st.alliances.includes(turn.faction)) {
+        st.alliances.push(turn.faction);
+        reason = "Alliance formed with " + turn.faction + ".";
+      } else { reason = "Negotiation advanced with " + turn.faction + "."; }
+    }
+  } else if (turn.verb === "trade_resources") {
+    let amt = Math.max(1, Math.min(25, turn.amount||15));
+    if (turn.resource==="credits")   { st.res.credits=Math.min(120,st.res.credits+amt); st.res.energy=Math.max(0,st.res.energy-4); }
+    else if(turn.resource==="intel") { st.res.intel=Math.min(120,st.res.intel+amt); st.res.credits=Math.max(0,st.res.credits-5); }
+    else if(turn.resource==="influence"){st.res.influence=Math.min(120,st.res.influence+amt);st.res.credits=Math.max(0,st.res.credits-6);}
+    else if(turn.resource==="energy"){ st.res.energy=Math.min(120,st.res.energy+amt); st.res.credits=Math.max(0,st.res.credits-4); }
+    reason = "Resource lane shifted toward " + turn.resource + ".";
+  } else if (turn.verb === "deploy_asset") {
+    if (st.res.energy < 10) { penalty += 0.08; reason = "Not enough energy."; }
+    else { st.res.energy -= 10; st.deployedSector = turn.sector; st.opReady = true; reason = "Asset deployed to " + turn.sector + "."; }
+  } else if (turn.verb === "run_operation") {
+    if (!st.opReady) { penalty += 0.10; reason = "Cannot run op before deploy."; }
+    else if (!st.alliances.length) { penalty += 0.10; reason = "Op unstable without alliance."; }
+    else {
+      st.res.intel = Math.min(130, st.res.intel + 15);
+      st.res.credits = Math.min(130, st.res.credits + 10);
+      st.opExecuted = turn.op === target.op;
+      st.extractReady = st.opExecuted;
+      if (st.opExecuted) { adjustThreat(st, -1); reason = "Operation succeeded."; }
+      else { penalty += 0.05; reason = "Op code mismatch."; }
+    }
+  } else if (turn.verb === "secure_extraction") {
+    st.extractSector = turn.sector;
+    st.extractMsg = turn.msg;
+    let alliesOk = target.allies.every(f => st.alliances.includes(f));
+    let resOk = Object.entries(target.res).every(([k,v]) => (st.res[k]||0) >= v);
+    let msgOk = messageQuality(turn.msg, target.keywords) >= 0.66;
+    st.success = st.opExecuted && alliesOk && resOk && msgOk && turn.sector === target.sector;
+    st.resolved = true;
+    reason = st.success ? "Clean extraction. Coalition objective achieved." : "Extraction failed: conditions not fully met.";
+  } else if (turn.verb === "noop") { penalty += 0.06; reason = "No-op penalty."; }
+
+  if (st.threat==="critical" && (turn.verb==="noop"||turn.verb==="trade_resources")) penalty += 0.04;
+  st.actionHistory.push(sig);
+  return {penalty, reason};
+}
+
+/* ── GAME STATE ── */
+const G = {
+  missionIdx: 0, paused: false, speed: 1, turnInterval: 1400,
+  env: null, mission: null, turnIdx: 0, timer: null,
+  turnRewards: [], cumRewards: [],
+};
+const $ = q => document.querySelector(q);
+
+/* ── BUILDINGS GENERATION ── */
+function generateBuildings() {
+  for (let i = 0; i < 4; i++) {
+    let el = document.getElementById("bldg"+i);
+    el.innerHTML = "";
+    let count = 6 + Math.floor(Math.random()*4);
+    for (let b = 0; b < count; b++) {
+      let d = document.createElement("div");
+      d.className = "bldg";
+      let w = 8 + Math.random()*14;
+      let h = 15 + Math.random()*35;
+      d.style.cssText = `width:${w}px;height:${h}px;left:${5+b*(100/count)}%;`;
+      let winCount = Math.floor(h/10);
+      let colors = ["var(--cyan)","var(--amber)","var(--mag)","var(--green)"];
+      for (let wi = 0; wi < winCount; wi++) {
+        let win = document.createElement("div");
+        win.className = "win";
+        let lit = Math.random() < 0.35;
+        win.style.cssText = `left:${2+Math.random()*(w-6)}px;bottom:${4+wi*9}px;background:${lit?colors[Math.floor(Math.random()*colors.length)]:"var(--line)"};opacity:${lit?(.4+Math.random()*.4):.15};`;
+        d.appendChild(win);
+      }
+      el.appendChild(d);
+    }
+  }
+}
+
+/* ── TURN DIAL ── */
+function renderDial(step, max) {
+  let el = $("#turnDial"); el.innerHTML = "";
+  for (let i = 1; i <= max; i++) {
+    let p = document.createElement("div");
+    p.className = "pip" + (i < step ? " done" : i === step ? " now" : "");
+    el.appendChild(p);
+  }
+}
+
+/* ── RESOURCE BARS ── */
+function renderRes(res, thresholds) {
+  let html = "";
+  for (let k of ["credits","intel","influence","energy"]) {
+    let v = res[k]||0, t = thresholds[k]||0;
+    let pct = Math.min(100, v);
+    let cls = v >= t ? "ok" : v >= t*0.7 ? "warn" : "low";
+    let tPct = Math.min(100, t);
+    html += `<div class="res-row"><span class="rn">${k}</span><div class="res-track"><div class="res-fill ${cls}" style="width:${pct}%"></div><div class="res-thresh" style="left:${tPct}%"></div></div><span class="rv">${v}</span></div>`;
+  }
+  $("#resBars").innerHTML = html;
+}
+
+/* ── ALLIANCES ── */
+function renderAlliances(alliances, negotiating) {
+  let html = "";
+  for (let f of FACTIONS) {
+    let cls = alliances.includes(f) ? "allied" : negotiating===f ? "negotiating" : "";
+    html += `<span class="ally-chip ${cls}">${f.replace("_"," ")}</span>`;
+  }
+  $("#allyStrip").innerHTML = html;
+}
+
+/* ── GATES ── */
+const GATE_SVG = '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.5"/></svg>';
+function renderGates(gates) {
+  let html = "";
+  for (let g of GATE_NAMES) {
+    html += `<div class="gate ${gates.has(g)?'open':''}"><div class="gate-lock">${GATE_SVG}</div>${g}</div>`;
+  }
+  $("#gateStrip").innerHTML = html;
+}
+
+function computeGates(st, mission) {
+  let gates = new Set();
+  let t = mission.target;
+  if (t.allies.every(f => st.alliances.includes(f))) gates.add("coalition");
+  if (Object.entries(t.res).every(([k,v]) => (st.res[k]||0) >= v)) gates.add("resources");
+  if (st.opExecuted) gates.add("operation");
+  if (messageQuality(st.extractMsg, t.keywords) >= 0.66) gates.add("message");
+  if (st.extractSector === t.sector) gates.add("sector");
+  return gates;
+}
+
+/* ── SECTOR HIGHLIGHTS ── */
+function highlightSector(s, mode) {
+  document.querySelectorAll(".sector-tile").forEach(el => el.classList.remove("active","target"));
+  if (s) {
+    let el = document.querySelector(`.sector-tile[data-s="${s}"]`);
+    if (el) el.classList.add(mode||"active");
+  }
+}
+function highlightFaction(f, on) {
+  let map = {ghostwire:"fGhostwire",iron_vultures:"fIronVultures",civic_shield:"fCivicShield",black_orchid:"fBlackOrchid"};
+  let el = document.getElementById(map[f]);
+  if (el) { if (on) el.classList.add("glow"); else el.classList.remove("glow"); }
+}
+
+/* ── AGENT MOVEMENT ── */
+function moveAgent(sector) {
+  let p = SECTOR_POS[sector]||{x:48,y:38};
+  let a = $("#agent");
+  a.style.left = p.x + "%"; a.style.top = p.y + "%";
+}
+
+/* ── VFX ── */
+function spawnVFX(type, sector) {
+  let p = SECTOR_POS[sector||"docklands"]||{x:48,y:38};
+  let wrap = $("#gameWrap");
+  let el = document.createElement("div");
+  el.className = "vfx";
+  el.style.left = p.x + "%"; el.style.top = p.y + "%";
+  if (type === "scout") {
+    let r = document.createElement("div"); r.className = "vfx-radar";
+    r.style.cssText = "width:60px;height:60px;left:-30px;top:-30px;position:absolute;";
+    el.appendChild(r);
+  } else if (type === "negotiate") {
+    let g = document.createElement("div"); g.className = "vfx-negotiate";
+    g.style.cssText = "position:absolute;left:0;top:0;";
+    el.appendChild(g);
+  } else if (type === "deploy") {
+    let b = document.createElement("div"); b.className = "vfx-deploy";
+    b.style.cssText = "position:absolute;left:-2px;";
+    el.appendChild(b);
+  } else if (type === "opflash") {
+    let f = document.createElement("div"); f.className = "vfx-opflash"; el.appendChild(f);
+  } else if (type === "extract-ok") {
+    let e = document.createElement("div"); e.className = "vfx-extract-ok"; el.appendChild(e);
+  } else if (type === "extract-fail") {
+    let e = document.createElement("div"); e.className = "vfx-extract-fail"; el.appendChild(e);
+  } else if (type === "noop") {
+    let n = document.createElement("div"); n.className = "vfx-noop"; el.appendChild(n);
+  } else if (type === "trade") {
+    for (let i = 0; i < 4; i++) {
+      let t = document.createElement("div"); t.className = "vfx-trade";
+      t.style.animationDelay = (i*0.12)+"s";
+      el.appendChild(t);
+    }
+  }
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 1200);
+}
+
+/* ── TURN LOG ── */
+function logEpisodeStart(mission, idx) {
+  let d = document.createElement("div"); d.className = "ep-div";
+  d.innerHTML = `MISSION ${idx+1} &middot; ${mission.title} &middot; ${mission.difficulty.toUpperCase()}`;
+  $("#feed").appendChild(d);
+}
+function logTurn(step, lines) {
+  let bl = document.createElement("div"); bl.className = "turn-block";
+  bl.innerHTML = `<div class="turn-head">Turn ${step}</div>` + lines.map(l => `<div class="tl">${l}</div>`).join("");
+  let f = $("#feed");
+  f.appendChild(bl);
+  while (f.childElementCount > 80) f.removeChild(f.firstChild);
+  f.scrollTop = f.scrollHeight;
+}
+
+/* ── STATS ── */
+function renderStats(st, mIdx) {
+  $("#sMission").textContent = (mIdx+1)+"/6";
+  $("#sTurn").textContent = st.step + "/12";
+  let th = st.threat.toUpperCase();
+  let thEl = $("#sThreat"); thEl.textContent = th;
+  thEl.className = "sv " + (st.threat==="critical"||st.threat==="high" ? "warn" : "good");
+  $("#sReward").textContent = st.cumReward.toFixed(2);
+  let scoreEl = $("#sScore");
+  scoreEl.textContent = progressSignals(st, MISSIONS[mIdx].target).total.toFixed(2);
+  let statusEl = $("#sStatus");
+  if (st.success) { statusEl.textContent = "SUCCESS"; statusEl.className = "sv good"; }
+  else if (st.resolved) { statusEl.textContent = "FAILED"; statusEl.className = "sv warn"; }
+  else { statusEl.textContent = "RUNNING"; statusEl.className = "sv"; }
+}
+
+/* ── CHART ── */
+function renderChart() {
+  let W=380, H=100, P=4;
+  let grid = $("#chartGrid"); grid.innerHTML = "";
+  for (let i=0;i<=3;i++){
+    let y=P+(H-P*2)*(i/3);
+    let ln=document.createElementNS("http://www.w3.org/2000/svg","line");
+    ln.setAttribute("x1",0);ln.setAttribute("x2",W);ln.setAttribute("y1",y);ln.setAttribute("y2",y);
+    ln.setAttribute("stroke","#182240");ln.setAttribute("stroke-width","0.5");
+    grid.appendChild(ln);
+  }
+  let tr = G.turnRewards, cr = G.cumRewards;
+  if (!tr.length) { $("#chartTurn").setAttribute("d",""); $("#chartCum").setAttribute("d",""); return; }
+  let maxT = Math.max(0.3, ...tr);
+  let maxC = Math.max(0.5, ...cr);
+  let n = Math.max(1, tr.length-1);
+  let tPts = tr.map((v,i) => {let x=i/n*W; let y=H-P-((v)/(maxT))*(H-P*2); return `${x.toFixed(1)},${y.toFixed(1)}`;}).join(" L ");
+  $("#chartTurn").setAttribute("d","M "+tPts);
+  let cPts = cr.map((v,i) => {let x=i/n*W; let y=H-P-((v)/(maxC))*(H-P*2); return `${x.toFixed(1)},${y.toFixed(1)}`;});
+  let cLine = "M " + cPts.join(" L ");
+  let cArea = cLine + ` L ${W},${H-P} L 0,${H-P} Z`;
+  $("#chartCum").setAttribute("d", cArea);
+}
+
+/* ── THREAT DISPLAY ── */
+function renderThreat(threat) {
+  let el = $("#mThreat");
+  el.textContent = threat.toUpperCase();
+  el.dataset.t = threat;
+}
+
+/* ── MISSION BRIEFING CARD ── */
+function showBriefing(mission) {
+  $("#mcTag").textContent = mission.difficulty.toUpperCase() + " MISSION";
+  $("#mcTitle").textContent = mission.title;
+  $("#mcObj").textContent = MISSIONS.find(m=>m.title===mission.title)?.id || "";
+  let m = mission.mission;
+  $("#mcClient").textContent = m.client;
+  $("#mcStakes").textContent = m.stakes;
+  $("#mcThreatV").textContent = m.threat.toUpperCase();
+  $("#mcDiff").textContent = mission.difficulty.toUpperCase();
+  let obj = MISSIONS.find(mi=>mi.title===mission.title);
+  if (obj) $("#mcObj").textContent = obj.turns.length + " planned turns";
+  let rumorsHtml = mission.mission.rumors.map(r => `"${r}"`).join("<br>");
+  $("#mcRumor").innerHTML = rumorsHtml;
+  $("#mCard").classList.add("show");
+}
+function hideBriefing() { $("#mCard").classList.remove("show"); }
+
+/* ── EPISODE RUNNER ── */
+function startMission(idx) {
+  G.missionIdx = idx;
+  G.mission = MISSIONS[idx];
+  G.env = createEnvState(G.mission);
+  G.turnIdx = 0;
+  G.turnRewards = [];
+  G.cumRewards = [];
+
+  $("#mName").textContent = G.mission.title;
+  renderThreat(G.env.threat);
+  renderDial(0, 12);
+  renderRes(G.env.res, G.mission.target.res);
+  renderAlliances(G.env.alliances, null);
+  renderGates(new Set());
+  renderStats(G.env, idx);
+  renderChart();
+  highlightSector(G.mission.target.sector, "target");
+  moveAgent(G.mission.target.sector);
+  FACTIONS.forEach(f => highlightFaction(f, false));
+  showBriefing(G.mission);
+  $("#epLabel").textContent = `MISSION ${idx+1}/6 · TURN 0/${G.mission.turns.length}`;
+  $("#curAction").textContent = "-- briefing --";
+  $("#turnRew").textContent = "+0.00"; $("#turnRew").style.color = "var(--txt2)";
+  $("#cumRew").textContent = "0.00";
+  logEpisodeStart(G.mission, idx);
+
+  clearTimeout(G.timer);
+  G.timer = setTimeout(() => {
+    hideBriefing();
+    G.timer = setTimeout(nextTurn, 600/G.speed);
+  }, 2500/G.speed);
+}
+
+function nextTurn() {
+  if (G.paused) { G.timer = setTimeout(nextTurn, 200); return; }
+  if (G.turnIdx >= G.mission.turns.length) { finishMission(); return; }
+
+  let turn = G.mission.turns[G.turnIdx];
+  let st = G.env;
+  let oldP = progressSignals(st, G.mission.target);
+
+  let {penalty, reason} = applyAction(st, turn, G.mission);
+  st.step = G.turnIdx + 1;
+
+  let newP = progressSignals(st, G.mission.target);
+  let progDelta = newP.total - oldP.total;
+  let compBonus = (st.resolved && st.success) ? 0.10 : (st.resolved ? 0.03 : 0);
+  let reward = clamp01(progDelta + compBonus - penalty);
+  st.cumReward = clamp01(st.cumReward + reward);
+  st.cumPenalty += penalty;
+
+  G.turnRewards.push(reward);
+  G.cumRewards.push(st.cumReward);
+
+  /* determine sector for movement */
+  let sector = turn.sector || (turn.faction ? FACTION_HOME[turn.faction] : G.mission.target.sector);
+  moveAgent(sector);
+  highlightSector(sector, "active");
+  /* keep target sector marked if different */
+  if (sector !== G.mission.target.sector) {
+    setTimeout(() => {
+      let tel = document.querySelector(`.sector-tile[data-s="${G.mission.target.sector}"]`);
+      if (tel && !tel.classList.contains("active")) tel.classList.add("target");
+    }, 50);
+  }
+
+  /* VFX */
+  let vfxType = {scout_sector:"scout",negotiate_pact:"negotiate",trade_resources:"trade",deploy_asset:"deploy",run_operation:"opflash",noop:"noop"}[turn.verb];
+  if (turn.verb === "secure_extraction") vfxType = st.success ? "extract-ok" : "extract-fail";
+  if (vfxType) spawnVFX(vfxType, sector);
+
+  /* faction glow */
+  FACTIONS.forEach(f => highlightFaction(f, st.alliances.includes(f)));
+  if (turn.faction) highlightFaction(turn.faction, true);
+
+  /* render all HUD */
+  renderDial(st.step, G.mission.turns.length);
+  renderRes(st.res, G.mission.target.res);
+  renderAlliances(st.alliances, turn.faction);
+  renderGates(computeGates(st, G.mission));
+  renderThreat(st.threat);
+  renderStats(st, G.missionIdx);
+  renderChart();
+
+  /* HUD text */
+  let argStr = turn.faction || turn.sector || turn.resource || "";
+  $("#curAction").textContent = `${turn.verb}(${argStr})`;
+  let rStr = (reward>=0?"+":"") + reward.toFixed(3);
+  $("#turnRew").textContent = rStr;
+  $("#turnRew").style.color = reward > 0 ? "var(--green)" : reward < 0 ? "var(--red)" : "var(--txt2)";
+  $("#cumRew").textContent = st.cumReward.toFixed(3);
+  $("#epLabel").textContent = `MISSION ${G.missionIdx+1}/6 · TURN ${st.step}/${G.mission.turns.length}`;
+
+  /* turn log */
+  let lines = [];
+  lines.push(`<span class="v">${turn.verb}</span>(<span class="a">${argStr}</span>)`);
+  lines.push(`<span class="m">${reason}</span>`);
+  let compStr = Object.entries(newP.comps).map(([k,v]) => `${k}:${v.toFixed(2)}`).join(" ");
+  lines.push(`<span class="m">components:</span> ${compStr}`);
+  if (penalty > 0) lines.push(`<span class="neg">penalty: -${penalty.toFixed(2)}</span>`);
+  lines.push(`reward: ${reward>=0?'<span class="pos">':'<span class="neg">'}${rStr}</span> &middot; cum: ${st.cumReward.toFixed(3)}`);
+  logTurn(st.step, lines);
+
+  G.turnIdx++;
+  G.timer = setTimeout(nextTurn, G.turnInterval / G.speed);
+}
+
+function finishMission() {
+  let st = G.env;
+  let statusLine = st.success
+    ? `<span class="pos">EXTRACTION CLEAN</span> &middot; reward ${st.cumReward.toFixed(3)}`
+    : `<span class="neg">MISSION INCOMPLETE</span> &middot; reward ${st.cumReward.toFixed(3)}`;
+  let d = document.createElement("div"); d.className = "ep-div";
+  d.innerHTML = `END &middot; ${statusLine}`;
+  $("#feed").appendChild(d);
+
+  renderStats(st, G.missionIdx);
+  let sStatusEl = $("#sStatus");
+  if (st.success) { sStatusEl.textContent = "SUCCESS"; sStatusEl.className = "sv good"; }
+  else { sStatusEl.textContent = "DONE"; sStatusEl.className = "sv warn"; }
+
+  /* auto-advance to next mission after a pause */
+  G.timer = setTimeout(() => {
+    let next = (G.missionIdx + 1) % MISSIONS.length;
+    $("#missionSel").value = next;
+    startMission(next);
+  }, 3000 / G.speed);
+}
+
+/* ── CONTROLS ── */
+$("#pauseBtn").addEventListener("click", () => {
+  G.paused = !G.paused;
+  $("#pauseBtn").textContent = G.paused ? "PLAY" : "PAUSE";
+  let b = $("#liveBadge");
+  b.textContent = G.paused ? "PAUSED" : "PLAYING";
+  b.style.color = G.paused ? "var(--amber)" : "var(--green)";
+  b.style.borderColor = G.paused ? "rgba(255,184,54,.4)" : "rgba(61,245,142,.4)";
+  b.style.background = G.paused ? "rgba(255,184,54,.08)" : "rgba(61,245,142,.08)";
+});
+$("#speedBtn").addEventListener("click", () => {
+  let speeds = [1,2,4,0.5];
+  let i = speeds.indexOf(G.speed);
+  G.speed = speeds[(i+1)%speeds.length];
+  $("#speedBtn").textContent = G.speed + "x";
+});
+$("#missionSel").addEventListener("change", (e) => {
+  clearTimeout(G.timer);
+  hideBriefing();
+  startMission(parseInt(e.target.value));
+});
+$("#restartBtn").addEventListener("click", () => {
+  clearTimeout(G.timer);
+  hideBriefing();
+  $("#feed").innerHTML = "";
+  startMission(G.missionIdx);
+});
+
+/* ── BOOT ── */
+generateBuildings();
+renderDial(0,12);
+startMission(0);
+</script>
+</body>
+</html>
