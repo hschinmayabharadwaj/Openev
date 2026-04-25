@@ -3,6 +3,13 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Dict, List, Optional, Tuple
 
+try:
+	from openenv.core.env_server.interfaces import Environment as OpenEnvEnvironment
+except Exception:
+	# Fallback keeps local execution working even when openenv-core is unavailable.
+	class OpenEnvEnvironment:  # type: ignore[too-many-ancestors]
+		pass
+
 from models import (
 	Action,
 	EnvironmentState,
@@ -20,13 +27,14 @@ def _clamp01(value: float) -> float:
 	return max(0.0, min(1.0, value))
 
 
-class NeonSyndicateEnvironment:
+class NeonSyndicateEnvironment(OpenEnvEnvironment):
 	"""
 	Neon Syndicate is a partially observable, long-horizon strategy environment.
 	The agent must negotiate alliances, manage resources, and execute a clean extraction.
 	"""
 
 	def __init__(self) -> None:
+		super().__init__()
 		self.max_steps = 12
 		self._tasks = self._build_tasks()
 		self._task_order = [
@@ -211,7 +219,14 @@ class NeonSyndicateEnvironment:
 			for task in self._tasks.values()
 		]
 
-	def reset(self, task_id: Optional[str] = None) -> Observation:
+	def reset(
+		self,
+		seed: Optional[int] = None,
+		episode_id: Optional[str] = None,
+		task_id: Optional[str] = None,
+		**kwargs,
+	) -> Observation:
+		_ = seed, episode_id, kwargs
 		if task_id is None:
 			task_id = self._task_order[self._task_index]
 			self._task_index = (self._task_index + 1) % len(self._task_order)
@@ -240,6 +255,7 @@ class NeonSyndicateEnvironment:
 			raise RuntimeError("Environment has not been reset.")
 		return self._state
 
+	@property
 	def state(self) -> EnvironmentState:
 		return self._require_state()
 
@@ -463,7 +479,8 @@ class NeonSyndicateEnvironment:
 		state.action_history.append(action_signature)
 		return penalty, reason
 
-	def step(self, action: Action) -> StepResponse:
+	def step(self, action: Action, timeout_s: Optional[float] = None, **kwargs) -> StepResponse:
+		_ = timeout_s, kwargs
 		state = self._require_state()
 		if state.resolved or state.step_count >= state.max_steps:
 			score = self._grader_score(state)

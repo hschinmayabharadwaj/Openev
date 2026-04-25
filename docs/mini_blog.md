@@ -62,6 +62,7 @@ Key metrics to report:
 ## Links
 - Hugging Face Space: https://huggingface.co/spaces/hsbharadwaj/ev
 - Runtime API: https://hsbharadwaj-ev.hf.space
-- Colab training run: `TODO`
+- Colab training run: https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb
+- Code repository: https://github.com/hschinmayabharadwaj/Openev
 - WandB run (optional): `TODO`
-- Demo video (<2 min): `TODO`
+- Demo video (<2 min): `TODO_ADD_YOUTUBE_LINK`

@@ -281,6 +281,34 @@ Fill these placeholders before submission:
 - Mini-blog draft: [docs/mini_blog.md](docs/mini_blog.md)
 - Short video script: [docs/video_script_90s.md](docs/video_script_90s.md)
 
+## Automated Round Submission Links
+
+Use these exact links in the submission form:
+
+- Hugging Face Space URL: https://huggingface.co/spaces/hsbharadwaj/ev
+- Colab Notebook link: https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb
+- Code repository link: https://github.com/hschinmayabharadwaj/Openev
+- YouTube video URL: `TODO_ADD_YOUTUBE_LINK`
+
+Automated round check notes:
+
+- Space is public and cloneable.
+- `openenv.yaml` is parseable and aligned with runtime task IDs.
+- Gym-style endpoints exist: `reset`, `step`, `state`.
+- Training script exists: [training/train_trl_ppo.py](training/train_trl_ppo.py).
+- Notebook exists: [notebooks/trl_training_colab.ipynb](notebooks/trl_training_colab.ipynb).
+- Plot evidence files are committed under `artifacts/` and embedded below.
+
+### Inline Training Evidence
+
+Reward curve:
+
+![Reward Curve](artifacts/reward_curves.png)
+
+Loss curve:
+
+![Loss Curve](artifacts/loss_curve.png)
+
 ## Results Table Template
 
 Use this table in your final README before submission:

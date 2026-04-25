@@ -26,17 +26,17 @@ observation_model: Observation
 action_model: Action
 reward_model: Reward
 episode:
-  max_steps: 8
+  max_steps: 12
 tasks:
-  - task_id: task_easy_password
+  - task_id: task_easy_docklands_relay
     difficulty: easy
-  - task_id: task_easy_feature_question
+  - task_id: task_easy_data_spire_broker
     difficulty: easy
-  - task_id: task_medium_double_charge
+  - task_id: task_medium_undergrid_blackout
     difficulty: medium
-  - task_id: task_medium_api_rate_limit
+  - task_id: task_medium_citadel_convoy
     difficulty: medium
-  - task_id: task_hard_enterprise_outage
+  - task_id: task_hard_orchid_coup
     difficulty: hard
-  - task_id: task_hard_data_breach_report
+  - task_id: task_hard_citywide_failsafe
     difficulty: hard

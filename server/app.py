@@ -42,7 +42,7 @@ def step(action: Action) -> StepResponse:
 @app.get("/state")
 def state() -> dict:
 	try:
-		return {"state": env.state().model_dump()}
+		return {"state": env.state.model_dump()}
 	except RuntimeError as exc:
 		raise HTTPException(status_code=400, detail=str(exc)) from exc
 
