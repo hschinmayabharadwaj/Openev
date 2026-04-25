@@ -6,46 +6,56 @@ from pydantic import BaseModel, Field
 
 
 ActionType = Literal[
-	"classify_priority",
-	"assign_queue",
-	"draft_reply",
-	"add_internal_note",
-	"resolve_ticket",
+	"scout_sector",
+	"negotiate_pact",
+	"trade_resources",
+	"deploy_asset",
+	"run_operation",
+	"secure_extraction",
 	"noop",
 ]
 
-Priority = Literal["low", "medium", "high", "urgent"]
-Queue = Literal["billing", "technical", "account", "trust_and_safety", "general"]
+Difficulty = Literal["easy", "medium", "hard"]
+ThreatLevel = Literal["low", "medium", "high", "critical"]
+FactionName = Literal["ghostwire", "iron_vultures", "civic_shield", "black_orchid"]
+SectorName = Literal["docklands", "data_spire", "undergrid", "citadel_gate"]
 
 
 class Action(BaseModel):
 	action_type: ActionType
-	priority: Optional[Priority] = None
-	queue: Optional[Queue] = None
-	reply_text: Optional[str] = None
-	note: Optional[str] = None
-	resolution_code: Optional[str] = None
+	faction: Optional[FactionName] = None
+	sector: Optional[SectorName] = None
+	resource: Optional[Literal["credits", "intel", "influence", "energy"]] = None
+	amount: Optional[int] = Field(default=None, ge=1, le=100)
+	message: Optional[str] = None
+	operation_code: Optional[str] = None
 
 
-class Ticket(BaseModel):
-	ticket_id: str
-	customer_name: str
-	customer_tier: Literal["free", "pro", "enterprise"]
-	subject: str
-	message: str
-	product_area: str
+class MissionBrief(BaseModel):
+	mission_id: str
+	city: str
+	client: str
+	stakes: str
+	initial_threat: ThreatLevel
+	rumors: List[str]
 
 
 class Observation(BaseModel):
 	task_id: str
-	difficulty: Literal["easy", "medium", "hard"]
+	difficulty: Difficulty
 	objective: str
 	step_count: int
 	max_steps: int
-	ticket: Ticket
-	current_priority: Optional[Priority] = None
-	current_queue: Optional[Queue] = None
-	reply_draft: Optional[str] = None
+	mission: MissionBrief
+	known_threat: ThreatLevel
+	resources: Dict[str, int]
+	reputation: Dict[str, int]
+	alliances: List[str] = Field(default_factory=list)
+	deployed_sector: Optional[SectorName] = None
+	operation_ready: bool = False
+	operation_executed: bool = False
+	extraction_ready: bool = False
+	intel_log: List[str] = Field(default_factory=list)
 	last_action: Optional[Action] = None
 	action_history: List[str] = Field(default_factory=list)
 
@@ -69,24 +79,25 @@ class ResetRequest(BaseModel):
 
 class TaskSummary(BaseModel):
 	task_id: str
-	difficulty: Literal["easy", "medium", "hard"]
+	difficulty: Difficulty
 	title: str
 	objective: str
 
 
 class TaskTarget(BaseModel):
-	priority: Priority
-	queue: Queue
-	resolution_code: str
-	reply_keywords: List[str]
+	required_allies: List[FactionName]
+	required_operation_code: str
+	extraction_sector: SectorName
+	min_resources: Dict[str, int]
+	required_message_keywords: List[str]
 
 
 class TaskDefinition(BaseModel):
 	task_id: str
-	difficulty: Literal["easy", "medium", "hard"]
+	difficulty: Difficulty
 	title: str
 	objective: str
-	ticket: Ticket
+	mission: MissionBrief
 	target: TaskTarget
 
 
@@ -94,12 +105,19 @@ class EnvironmentState(BaseModel):
 	active_task: TaskDefinition
 	step_count: int
 	max_steps: int
-	current_priority: Optional[Priority] = None
-	current_queue: Optional[Queue] = None
-	reply_draft: Optional[str] = None
-	internal_notes: List[str] = Field(default_factory=list)
-	resolved: bool = False
-	resolution_code: Optional[str] = None
+	known_threat: ThreatLevel
+	resources: Dict[str, int] = Field(default_factory=dict)
+	reputation: Dict[str, int] = Field(default_factory=dict)
+	alliances: List[str] = Field(default_factory=list)
+	deployed_sector: Optional[SectorName] = None
+	operation_ready: bool = False
+	operation_executed: bool = False
+	extraction_ready: bool = False
+	extraction_sector: Optional[SectorName] = None
+	extraction_message: Optional[str] = None
+	intel_log: List[str] = Field(default_factory=list)
 	action_history: List[str] = Field(default_factory=list)
+	resolved: bool = False
+	success: bool = False
 	cumulative_reward: float = 0.0
 	cumulative_penalty: float = 0.0

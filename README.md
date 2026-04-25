@@ -1,145 +1,152 @@
 ---
-title: SupportOps OpenEnv
+title: Neon Syndicate OpenEnv
 sdk: docker
 tags:
   - openenv
-  - customer-support
-  - evaluation
+  - multi-agent
+  - strategy-game
+  - long-horizon
 ---
 
-# SupportOps OpenEnv
+# Neon Syndicate OpenEnv
 
-SupportOps OpenEnv is a real-world environment that simulates customer support ticket triage.
-It is designed for training and evaluating agentic systems on practical operations work:
+A cinematic OG-style strategy game environment for training LLM agents on coalition politics, bargaining, and long-horizon execution.
 
-- classify incoming ticket priority,
-- route the ticket to the correct queue,
-- draft a useful customer reply,
-- and resolve with the right internal status code.
+## Theme Fit (Best Choice)
 
-The environment follows an OpenEnv-style API with `reset()`, `step()`, and `state()` via HTTP.
+Primary theme: Theme #1 Multi-Agent Interactions  
+Secondary theme: Theme #2 Super Long-Horizon Planning  
+Also strong on: Theme #3.1 Professional World Modeling
 
-## Why this environment is useful
+Why this is a top-tier fit:
 
-Customer support operations are a common and costly workflow in real businesses. This environment
-models realistic constraints and rewards agents for partial progress rather than only terminal success.
+- Multi-agent incentives are central: factions cooperate conditionally and have competing interests.
+- Planning is long-horizon: success requires ordered decisions over up to 12 turns with delayed payoff.
+- World state is partially observable: rumors and outcomes require belief updates.
+- Reward hacking is constrained: extraction only succeeds if coalition, resources, operation code, and message quality all align.
+
+## The Core Idea
+
+You are the strategist in Neon Meridian, a high-stakes cyberpunk city.  
+Each mission requires you to:
+
+- negotiate pacts with factions,
+- scout sectors for intelligence,
+- rebalance resources under pressure,
+- deploy assets and run a coded operation,
+- and secure a clean extraction message.
+
+If you shortcut steps, you get penalties and mission collapse.
+
+## Environment API
+
+OpenEnv-compatible endpoints:
+
+- `GET /health`
+- `GET /tasks`
+- `POST /reset` with optional `{ "task_id": "..." }`
+- `POST /step` with `Action`
+- `GET /state`
+
+Gym-like behavior is preserved via reset/step/state semantics.
 
 ## Observation Space
 
-`Observation` fields:
+Main fields in `Observation`:
 
 - `task_id`, `difficulty`, `objective`
 - `step_count`, `max_steps`
-- `ticket`: structured support ticket (customer tier, message, product area)
-- `current_priority`, `current_queue`, `reply_draft`
-- `last_action`, `action_history`
+- `mission`: mission brief with city/client/stakes/threat/rumors
+- `known_threat`
+- `resources`: credits/intel/influence/energy
+- `reputation` by faction
+- `alliances`
+- `deployed_sector`, `operation_ready`, `operation_executed`, `extraction_ready`
+- `intel_log`, `last_action`, `action_history`
 
 ## Action Space
 
-`Action` model:
+Action types:
 
-- `action_type`: one of
-  - `classify_priority`
-  - `assign_queue`
-  - `draft_reply`
-  - `add_internal_note`
-  - `resolve_ticket`
-  - `noop`
-- optional fields by action type:
-  - `priority`: `low|medium|high|urgent`
-  - `queue`: `billing|technical|account|trust_and_safety|general`
-  - `reply_text`, `note`, `resolution_code`
+- `scout_sector`
+- `negotiate_pact`
+- `trade_resources`
+- `deploy_asset`
+- `run_operation`
+- `secure_extraction`
+- `noop`
 
-## Reward Design
+Structured fields support faction selection, sectors, operation codes, and extraction messaging.
 
-Each `step()` returns `Reward(score, components, reason)` where `score` is clamped to `[0.0, 1.0]`.
+## Reward Design (Dense + Delayed)
 
-Dense progress signals:
+Dense components:
 
-- priority correctness contribution,
-- queue correctness contribution,
-- reply quality (keyword coverage),
-- resolution correctness contribution.
+- alliance completion progress
+- resource threshold progress
+- operation readiness/execution progress
+- extraction message quality progress
+- extraction completion progress
 
-Penalties discourage undesirable behavior:
+Penalties:
 
-- repeated identical actions,
-- empty/invalid action payloads,
-- no-op stalling.
+- repeated identical actions
+- missing required payload fields
+- premature operation attempts
+- passive play under critical threat
 
-## Tasks and Graders (Easy -> Medium -> Hard)
+Terminal success requires consistent multi-step execution, not one-shot action spam.
 
-Deterministic grader score is always in `[0.0, 1.0]`:
+## Included Tasks
 
-`0.25 * priority + 0.25 * queue + 0.30 * reply_quality + 0.20 * resolution`
+Six missions from easy to hard:
 
-Included tasks (6 total):
+- `task_easy_docklands_relay`
+- `task_easy_data_spire_broker`
+- `task_medium_undergrid_blackout`
+- `task_medium_citadel_convoy`
+- `task_hard_orchid_coup`
+- `task_hard_citywide_failsafe`
 
-| Task ID | Difficulty | Description |
-|---------|------------|-------------|
-| `task_easy_password` | Easy | Password reset request routing |
-| `task_easy_feature_question` | Easy | Product feature inquiry |
-| `task_medium_double_charge` | Medium | Billing dispute handling |
-| `task_medium_api_rate_limit` | Medium | Technical API issue diagnosis |
-| `task_hard_enterprise_outage` | Hard | Enterprise production outage escalation |
-| `task_hard_data_breach_report` | Hard | Security incident response |
+## Local Run
 
-Each task has fixed target labels and required reply keywords, producing reproducible outcomes.
-
-## Local Setup
-
-1. Install dependencies:
+Install:
 
 ```bash
 pip install -U pip
-pip install fastapi httpx openai pydantic python-dotenv uvicorn
+pip install fastapi httpx openai openenv-core pydantic python-dotenv uvicorn
 ```
 
-2. Run environment API:
+Start API:
 
 ```bash
 uvicorn server.app:app --host 0.0.0.0 --port 7860
 ```
 
-3. Check health:
+Health check:
 
 ```bash
 curl http://localhost:7860/health
 ```
 
-## Inference Script (Required)
+## Baseline Inference Script
 
-The baseline script is `inference.py` in the project root and uses the OpenAI client.
+The baseline runner is [inference.py](inference.py). It uses OpenAI-compatible chat completions and logs required trace lines.
 
-Set required environment variables:
+Required env vars:
 
-- `API_BASE_URL` - LLM API endpoint
-- `MODEL_NAME` - primary model identifier
-- `MODEL_CANDIDATES` - optional comma-separated fallback models (example: `gpt-4.1-mini,gpt-4o-mini`)
-- `MODEL_CANDIDATES_EASY` - optional models for easy tasks
-- `MODEL_CANDIDATES_MEDIUM` - optional models for medium tasks
-- `MODEL_CANDIDATES_HARD` - optional models for hard tasks
-- `OPENAI_API_KEY` - API key (fallback: `HF_TOKEN`)
-- `ENV_BASE_URL` - environment API URL (default `http://localhost:7860`)
-- `ACTION_SCHEMA_MODE` - `strict` or `lenient` (default `strict`)
+- `OPENAI_API_KEY` (or `HF_TOKEN`)
+- `API_BASE_URL` (default `https://api.openai.com/v1`)
+- `MODEL_NAME` (default `gpt-4.1-mini`)
+- `ENV_BASE_URL` (default `http://localhost:7860`)
 
-### Multi-model and schema-based mode
+Optional routing vars:
 
-- Multi-model: `inference.py` tries each model in `MODEL_CANDIDATES` in order and falls back to a heuristic action if all fail.
-- Task-aware routing: model lists can be set by difficulty (`MODEL_CANDIDATES_EASY|MEDIUM|HARD`) or per task with `MODEL_CANDIDATES_TASK_<TASK_ID>`.
-- Schema-based: actions are validated against the Pydantic `Action` schema from `models.py` before being sent to `/step`.
-- In `strict` mode, action-specific required fields are enforced (`priority`, `queue`, `reply_text`, `note`, `resolution_code`).
-
-Example:
-
-```bash
-export MODEL_CANDIDATES="gpt-4.1-mini,gpt-4o-mini"
-export MODEL_CANDIDATES_EASY="gpt-4.1-mini"
-export MODEL_CANDIDATES_HARD="gpt-4.1,gpt-4.1-mini"
-export MODEL_CANDIDATES_TASK_TASK_HARD_DATA_BREACH_REPORT="gpt-4.1"
-export ACTION_SCHEMA_MODE="strict"
-python inference.py
-```
+- `MODEL_CANDIDATES`
+- `MODEL_CANDIDATES_EASY`
+- `MODEL_CANDIDATES_MEDIUM`
+- `MODEL_CANDIDATES_HARD`
+- `MODEL_CANDIDATES_TASK_<TASK_ID>`
 
 Run:
 
@@ -147,98 +154,155 @@ Run:
 python inference.py
 ```
 
-Structured logs are emitted with `[START]`, `[STEP]`, and `[END]` prefixes.
+## Minimal TRL Training Pipeline
 
-## Baseline Scores
+A minimal end-to-end TRL PPO script is provided and directly interacts with this environment API:
 
-Baseline performance using `gpt-4.1-mini` model:
+- [training/train_trl_ppo.py](training/train_trl_ppo.py)
 
-| Task ID | Difficulty | Expected Score |
-|---------|------------|----------------|
-| `task_easy_password` | Easy | 0.75 - 0.85 |
-| `task_easy_feature_question` | Easy | 0.70 - 0.85 |
-| `task_medium_double_charge` | Medium | 0.60 - 0.75 |
-| `task_medium_api_rate_limit` | Medium | 0.55 - 0.70 |
-| `task_hard_enterprise_outage` | Hard | 0.45 - 0.65 |
-| `task_hard_data_breach_report` | Hard | 0.40 - 0.60 |
-| **Average** | - | **0.55 - 0.70** |
-
-Example output:
-
-```
-[START] task=task_easy_password env=supportops-openenv model=gpt-4.1-mini
-[STEP] step=1 action={"action_type":"classify_priority","priority":"medium"} reward=0.25 done=false error=null
-[STEP] step=2 action={"action_type":"assign_queue","queue":"account"} reward=0.25 done=false error=null
-[STEP] step=3 action={"action_type":"draft_reply","reply_text":"..."} reward=0.20 done=false error=null
-[STEP] step=4 action={"action_type":"resolve_ticket","resolution_code":"awaiting_customer_confirmation"} reward=0.25 done=true error=null
-[END] success=true steps=4 score=0.95 rewards=0.25,0.25,0.20,0.25
-```
-
-## Docker
-
-Build and run locally:
+Run locally:
 
 ```bash
-docker build -t openev:update .
-docker run --rm -p 7860:7860 openev:update
+pip install -e .[training]
+python training/train_trl_ppo.py \
+  --env-base-url http://localhost:7860 \
+  --episodes 24 \
+  --output-dir artifacts/trl-neon-model
 ```
 
-Or pull the pre-built image from Docker Hub with the `update` tag:
+Colab notebook:
+
+- [notebooks/trl_training_colab.ipynb](notebooks/trl_training_colab.ipynb)
+
+## Evaluation and Reward Curves
+
+Judge-friendly before/after-style baseline comparison script:
+
+- [scripts/evaluate_and_plot.py](scripts/evaluate_and_plot.py)
+
+This evaluates random vs heuristic policies and writes:
+
+- `artifacts/eval_metrics.jsonl`
+- `artifacts/reward_curves.png`
+
+Run:
 
 ```bash
-docker pull hschinmaybharadwaj05/openev:update
-docker run --rm -p 7860:7860 hschinmaybharadwaj05/openev:update
+python scripts/evaluate_and_plot.py \
+  --env-base-url http://localhost:7860 \
+  --episodes 30 \
+  --output-jsonl artifacts/eval_metrics.jsonl \
+  --output-png artifacts/reward_curves.png
 ```
 
-**Current tag: `update`** — The image is tagged as `hschinmaybharadwaj05/openev:update` on Docker Hub.
+## One-Command Pipeline
 
-## Hugging Face Spaces Deployment
+Full local pipeline (server -> train -> evaluate -> plot):
 
-This environment is deployed as a **containerized Docker Space** on Hugging Face.
+- [scripts/run_full_pipeline.sh](scripts/run_full_pipeline.sh)
 
-**Live API URL:** `https://m134pra-supportops-openenv.hf.space`
-
-### What the HF Space Does
-
-The Hugging Face Space hosts the **environment API server** - it does NOT provide a UI. The hackathon evaluator calls the REST endpoints to test AI agents against the tasks.
-
-### Testing the Live API
+Run:
 
 ```bash
-# Health check
-curl https://m134pra-supportops-openenv.hf.space/health
-
-# List all tasks
-curl https://m134pra-supportops-openenv.hf.space/tasks
-
-# Reset to a specific task
-curl -X POST https://m134pra-supportops-openenv.hf.space/reset \
-  -H "Content-Type: application/json" \
-  -d '{"task_id": "task_easy_password"}'
-
-# Get current state
-curl https://m134pra-supportops-openenv.hf.space/state
-
-# Take an action
-curl -X POST https://m134pra-supportops-openenv.hf.space/step \
-  -H "Content-Type: application/json" \
-  -d '{"action_type": "classify_priority", "priority": "medium"}'
+./scripts/run_full_pipeline.sh
 ```
 
-### Deployment Steps
+Optional overrides:
 
-1. Create a new Docker Space on Hugging Face.
-2. Push this repository.
-3. Add runtime secrets/variables:
-   - `API_BASE_URL`
-   - `MODEL_NAME`
-  - `OPENAI_API_KEY`
-4. Ensure the Space has the `openenv` tag.
+```bash
+TRAIN_EPISODES=36 EVAL_EPISODES=40 OUTPUT_DIR=artifacts/trl-neon-model-v2 ./scripts/run_full_pipeline.sh
+```
 
-## API Summary
+The script emits:
 
-- `GET /health`
-- `GET /tasks`
-- `POST /reset` with optional `{ "task_id": "..." }`
-- `POST /step` with `Action`
-- `GET /state`
+- `artifacts/eval_metrics.jsonl`
+- `artifacts/reward_curves.png`
+- `artifacts/trl-neon-model/training_summary.jsonl`
+
+## Hugging Face Space Deployment
+
+Create a Docker Space and push this repository. Add the following Space variables/secrets:
+
+Variables:
+
+- `API_BASE_URL` (only needed for `inference.py` model calls)
+- `MODEL_NAME` (only needed for `inference.py`)
+
+Secrets:
+
+- `OPENAI_API_KEY` (or `HF_TOKEN`) for `inference.py`
+
+The environment API itself does not require an API key for `/reset`, `/step`, `/state`, `/tasks`.
+
+Quick verification after deploy:
+
+```bash
+curl https://hsbharadwaj-ev.hf.space/health
+curl https://hsbharadwaj-ev.hf.space/tasks
+```
+
+Public links:
+
+- Space page: https://huggingface.co/spaces/hsbharadwaj/ev
+- Runtime API base: https://hsbharadwaj-ev.hf.space
+
+If the runtime returns an error page, open the Space page above and restart the Space from Settings -> Restart this Space, then re-run the health check.
+
+### Space Error: "No application file"
+
+This error usually means the Space is running in a non-Docker SDK mode and expects a root `app.py` file.
+
+Fix steps:
+
+1. Open Space Settings on https://huggingface.co/spaces/hsbharadwaj/ev
+2. Set SDK to `Docker`
+3. Ensure the repository root contains `Dockerfile` (this repo already does)
+4. Click `Factory reboot` / `Restart this Space`
+
+Compatibility fallback:
+
+- This repo now includes a root [app.py](app.py), so even if SDK mode is temporarily switched, the Space still has an application entrypoint.
+
+## Hackathon Deliverables Checklist
+
+Minimum requirements mapping:
+
+- OpenEnv latest release: yes (manifest + API env)
+- Minimal training script (Unsloth or HF TRL): add a Colab notebook linked below
+- Reward/loss evidence: add reward curve PNGs in repo
+- Mini-blog or <2 min video: link in this README
+- Hugging Face Space deployment: link in this README
+
+Fill these placeholders before submission:
+
+- HF Space URL: https://huggingface.co/spaces/hsbharadwaj/ev
+- Colab training notebook: [notebooks/trl_training_colab.ipynb](notebooks/trl_training_colab.ipynb)
+- Reward curve image: `artifacts/reward_curves.png`
+- Mini-blog draft: [docs/mini_blog.md](docs/mini_blog.md)
+- Short video script: [docs/video_script_90s.md](docs/video_script_90s.md)
+
+## Results Table Template
+
+Use this table in your final README before submission:
+
+| Run | Policy/Model | Episodes | Avg Total Reward | Avg Task Score | Success Rate |
+|-----|--------------|----------|------------------|----------------|--------------|
+| Baseline A | Random policy | 30 | TODO | TODO | TODO |
+| Baseline B | Heuristic policy | 30 | TODO | TODO | TODO |
+| Trained | TRL PPO (`Qwen2.5-0.5B-Instruct`) | 30 | TODO | TODO | TODO |
+
+Attach below the table:
+
+- Reward curve image: `artifacts/reward_curves.png`
+- Metrics file: `artifacts/eval_metrics.jsonl`
+
+## Storytelling Assets
+
+- Mini-blog draft: [docs/mini_blog.md](docs/mini_blog.md)
+- 90-second demo script: [docs/video_script_90s.md](docs/video_script_90s.md)
+
+## What Makes This Cool
+
+This is not another grid world.
+
+Neon Syndicate forces strategic behavior under uncertainty with social coordination, dynamic penalties, sparse end goals, and rich intermediate learning signal. It is designed to produce visible before/after learning curves and qualitative policy improvement that judges can understand quickly.

@@ -1,12 +1,16 @@
-name: supportops-openenv
+name: neon-syndicate-openenv
 version: 1.0.0
 description: |
-  A real-world customer support triage simulator where an AI agent must classify priority,
-  route tickets, draft customer responses, and resolve cases with deterministic task graders.
+  A cinematic multi-agent strategy simulator where an AI agent must negotiate faction
+  alliances, manage constrained resources, execute mission operations, and secure clean
+  extraction under partial observability and delayed rewards.
 author: chinmayabharadwajhs
 tags:
   - openenv
-  - customer-support
+  - multi-agent
+  - strategy-game
+  - world-modeling
+  - long-horizon
   - evaluation
 entrypoint:
   type: api

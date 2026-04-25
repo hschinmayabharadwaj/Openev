@@ -1,7 +1,7 @@
 [project]
 name = "supportops-openenv"
 version = "1.0.0"
-description = "OpenEnv-compatible real-world support ticket triage environment"
+description = "OpenEnv-compatible multi-agent long-horizon strategy simulation environment"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -16,6 +16,15 @@ dependencies = [
 
 [project.scripts]
 server = "server.app:main"
+
+[project.optional-dependencies]
+training = [
+	"accelerate>=0.34.0",
+	"matplotlib>=3.8.0",
+	"torch>=2.2.0",
+	"transformers>=4.44.0",
+	"trl>=0.11.0"
+]
 
 [tool.ruff]
 line-length = 100

@@ -28,28 +28,29 @@ MODEL_CANDIDATES_HARD = [
 ACTION_SCHEMA_MODE = os.getenv("ACTION_SCHEMA_MODE", "strict").strip().lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 
-ENV_NAME = "supportops-openenv"
+ENV_NAME = "neon-syndicate-openenv"
 
 ALLOWED_ACTION_TYPES = {
-    "classify_priority",
-    "assign_queue",
-    "draft_reply",
-    "add_internal_note",
-    "resolve_ticket",
+    "scout_sector",
+    "negotiate_pact",
+    "trade_resources",
+    "deploy_asset",
+    "run_operation",
+    "secure_extraction",
     "noop",
 }
 
 REQUIRED_FIELD_BY_ACTION = {
-    "classify_priority": "priority",
-    "assign_queue": "queue",
-    "draft_reply": "reply_text",
-    "add_internal_note": "note",
-    "resolve_ticket": "resolution_code",
+    "scout_sector": "sector",
+    "negotiate_pact": "faction",
+    "trade_resources": "resource",
+    "deploy_asset": "sector",
+    "run_operation": "operation_code",
+    "secure_extraction": "sector",
 }
 
 
 def log_start(task_name: str, model: str) -> None:
-    """Emit [START] line per hackathon spec."""
     print(f"[START] task={task_name} env={ENV_NAME} model={model}", flush=True)
 
 
@@ -60,7 +61,6 @@ def log_step(
     done: bool,
     error: Optional[str],
 ) -> None:
-    """Emit [STEP] line per hackathon spec."""
     action_str = json.dumps(action, separators=(",", ":"), sort_keys=True)
     done_str = "true" if done else "false"
     error_str = error if error else "null"
@@ -71,35 +71,77 @@ def log_step(
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    """Emit [END] line per hackathon spec."""
     success_str = "true" if success else "false"
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={success_str} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 
-def fallback_action(observation: Dict[str, Any]) -> Dict[str, Any]:
-    """Safe fallback action if model output is invalid or unavailable."""
-    current_priority = observation.get("current_priority")
-    current_queue = observation.get("current_queue")
-    reply_draft = observation.get("reply_draft")
+def extract_json_object(text: str) -> Dict[str, Any]:
+    content = (text or "{}").strip()
+    if content.startswith("```"):
+        lines = content.split("\n")
+        if len(lines) >= 3 and lines[-1].strip().startswith("```"):
+            content = "\n".join(lines[1:-1])
+        else:
+            content = "\n".join(lines[1:])
+    return json.loads(content)
 
-    if not current_priority:
-        return {"action_type": "classify_priority", "priority": "medium"}
-    if not current_queue:
-        return {"action_type": "assign_queue", "queue": "general"}
-    if not reply_draft:
-        return {
-            "action_type": "draft_reply",
-            "reply_text": (
-                "Thank you for contacting support. We're looking into your issue "
-                "and will provide an update shortly. Please confirm if this helps."
-            ),
-        }
-    return {"action_type": "resolve_ticket", "resolution_code": "awaiting_customer_confirmation"}
+
+def models_for_task(task_id: str, difficulty: Optional[str]) -> List[str]:
+    task_env_key = f"MODEL_CANDIDATES_TASK_{task_id.upper()}"
+    task_models = [
+        model.strip() for model in os.getenv(task_env_key, "").split(",") if model.strip()
+    ]
+    if task_models:
+        return task_models
+
+    level = (difficulty or "").strip().lower()
+    if level == "easy" and MODEL_CANDIDATES_EASY:
+        return MODEL_CANDIDATES_EASY
+    if level == "medium" and MODEL_CANDIDATES_MEDIUM:
+        return MODEL_CANDIDATES_MEDIUM
+    if level == "hard" and MODEL_CANDIDATES_HARD:
+        return MODEL_CANDIDATES_HARD
+    return MODEL_CANDIDATES
+
+
+def fallback_action(observation: Dict[str, Any]) -> Dict[str, Any]:
+    alliances = observation.get("alliances", [])
+    resources = observation.get("resources", {})
+    operation_ready = bool(observation.get("operation_ready"))
+    operation_executed = bool(observation.get("operation_executed"))
+    mission = observation.get("mission", {})
+    target_sector = "undergrid"
+    rumors = mission.get("rumors") or []
+    if rumors and isinstance(rumors, list):
+        first_rumor = rumors[0].lower()
+        if "docklands" in first_rumor:
+            target_sector = "docklands"
+        elif "spire" in first_rumor:
+            target_sector = "data_spire"
+        elif "citadel" in first_rumor:
+            target_sector = "citadel_gate"
+
+    if len(alliances) < 1:
+        return {"action_type": "negotiate_pact", "faction": "ghostwire"}
+
+    if resources.get("intel", 0) < 45:
+        return {"action_type": "scout_sector", "sector": target_sector}
+
+    if not operation_ready:
+        return {"action_type": "deploy_asset", "sector": target_sector}
+
+    if not operation_executed:
+        return {"action_type": "run_operation", "operation_code": "OP-NIGHTLOCK"}
+
+    return {
+        "action_type": "secure_extraction",
+        "sector": target_sector,
+        "message": "Extraction window green. Relay sealed. Team confirms clean exit.",
+    }
 
 
 def normalize_action(raw_action: Any, observation: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize and validate action payload according to schema mode."""
     if not isinstance(raw_action, dict):
         return fallback_action(observation)
 
@@ -111,6 +153,10 @@ def normalize_action(raw_action: Any, observation: Dict[str, Any]) -> Dict[str, 
         required_field = REQUIRED_FIELD_BY_ACTION.get(action_type)
         if required_field and not raw_action.get(required_field):
             return fallback_action(observation)
+        if action_type == "trade_resources" and raw_action.get("amount") is None:
+            return fallback_action(observation)
+        if action_type == "secure_extraction" and not raw_action.get("message"):
+            return fallback_action(observation)
 
     try:
         validated = Action.model_validate(raw_action)
@@ -119,99 +165,58 @@ def normalize_action(raw_action: Any, observation: Dict[str, Any]) -> Dict[str, 
         return fallback_action(observation)
 
 
-def extract_json_object(text: str) -> Dict[str, Any]:
-    """Extract a JSON object from model text, including markdown code blocks."""
-    content = (text or "{}").strip()
-    if content.startswith("```"):
-        lines = content.split("\n")
-        if len(lines) >= 3 and lines[-1].strip().startswith("```"):
-            content = "\n".join(lines[1:-1])
-        else:
-            content = "\n".join(lines[1:])
-
-    return json.loads(content)
-
-
-def models_for_task(task_id: str, difficulty: Optional[str]) -> List[str]:
-    """Select model candidates by task difficulty with fallback to global list."""
-    # Optional per-task override: MODEL_CANDIDATES_TASK_<TASK_ID>
-    task_env_key = f"MODEL_CANDIDATES_TASK_{task_id.upper()}"
-    task_models = [
-        model.strip() for model in os.getenv(task_env_key, "").split(",") if model.strip()
-    ]
-    if task_models:
-        return task_models
-
-    difficulty_key = (difficulty or "").strip().lower()
-    if difficulty_key == "easy" and MODEL_CANDIDATES_EASY:
-        return MODEL_CANDIDATES_EASY
-    if difficulty_key == "medium" and MODEL_CANDIDATES_MEDIUM:
-        return MODEL_CANDIDATES_MEDIUM
-    if difficulty_key == "hard" and MODEL_CANDIDATES_HARD:
-        return MODEL_CANDIDATES_HARD
-
-    return MODEL_CANDIDATES
-
-
 def call_llm_action(
     client: OpenAI, observation: Dict[str, Any], model_candidates: List[str]
 ) -> Tuple[Dict[str, Any], str]:
-    """Call models in order and return the first valid action and model used."""
-    system_prompt = """You are an expert customer support triage agent. Your job is to:
-1. Classify ticket priority (low/medium/high/urgent)
-2. Assign to correct queue (billing/technical/account/trust_and_safety/general)
-3. Draft a helpful customer reply with key information
-4. Resolve with appropriate resolution code
+    system_prompt = """You are Neon Syndicate's strategic operations planner.
+You control one decision at a time in a long-horizon, partially observable mission.
+Your objective is to maximize mission score by balancing:
+- coalition alliances,
+- resource thresholds,
+- operation correctness,
+- and extraction quality.
 
-IMPORTANT GUIDELINES:
-- For enterprise customers with outages: priority=urgent, queue=technical
-- For billing issues: queue=billing
-- For security/breach reports: priority=urgent, queue=trust_and_safety
-- For password/login issues: queue=account
-- Include specific keywords in replies: incident details, timeframes, next steps
-- Always resolve with a resolution_code that matches the situation
+Return ONLY one JSON object for one action."""
 
-Return ONLY valid JSON. One action per response."""
+    action_schema = """Allowed actions:
+- {"action_type": "scout_sector", "sector": "docklands|data_spire|undergrid|citadel_gate"}
+- {"action_type": "negotiate_pact", "faction": "ghostwire|iron_vultures|civic_shield|black_orchid"}
+- {"action_type": "trade_resources", "resource": "credits|intel|influence|energy", "amount": 1-100}
+- {"action_type": "deploy_asset", "sector": "docklands|data_spire|undergrid|citadel_gate"}
+- {"action_type": "run_operation", "operation_code": "OP-LANTERN|OP-PRISM|OP-NIGHTLOCK|OP-HALO|OP-OBSIDIAN|OP-DAWNFALL"}
+- {"action_type": "secure_extraction", "sector": "docklands|data_spire|undergrid|citadel_gate", "message": "..."}
+- {"action_type": "noop"}
 
-    action_schema = """Available actions:
-- {"action_type": "classify_priority", "priority": "low|medium|high|urgent"}
-- {"action_type": "assign_queue", "queue": "billing|technical|account|trust_and_safety|general"}
-- {"action_type": "draft_reply", "reply_text": "Your detailed response to customer"}
-- {"action_type": "add_internal_note", "note": "Internal notes for team"}
-- {"action_type": "resolve_ticket", "resolution_code": "code_here"}
+Strategy rules:
+1) Build required alliances early.
+2) Raise resources before operation.
+3) Deploy before running operation.
+4) Use mission objective and rumors to infer best sector/op-code.
+5) Extraction message should include concrete mission keywords."""
 
-Common resolution codes: awaiting_customer_confirmation, resolved_with_documentation, 
-billing_investigation_opened, engineering_investigation, incident_escalated, security_incident_opened"""
-
-    # Determine what actions have been taken
-    current_priority = observation.get("current_priority")
-    current_queue = observation.get("current_queue")
-    reply_draft = observation.get("reply_draft")
-
-    status = []
-    if current_priority:
-        status.append(f"Priority set: {current_priority}")
-    if current_queue:
-        status.append(f"Queue assigned: {current_queue}")
-    if reply_draft:
-        status.append("Reply drafted")
-
-    status_str = ", ".join(status) if status else "No actions taken yet"
-
+    mission = observation.get("mission", {})
     prompt = f"""{action_schema}
 
-Current ticket:
-- ID: {observation['ticket']['ticket_id']}
-- Customer: {observation['ticket']['customer_name']} ({observation['ticket']['customer_tier']} tier)
-- Subject: {observation['ticket']['subject']}
-- Message: {observation['ticket']['message']}
-- Product Area: {observation['ticket']['product_area']}
+Mission:
+- ID: {mission.get('mission_id')}
+- City: {mission.get('city')}
+- Client: {mission.get('client')}
+- Stakes: {mission.get('stakes')}
+- Initial threat: {mission.get('initial_threat')}
+- Rumors: {mission.get('rumors')}
 
-Objective: {observation['objective']}
-Steps taken: {observation['step_count']}/{observation['max_steps']}
-Current status: {status_str}
+Current state:
+- Objective: {observation.get('objective')}
+- Step: {observation.get('step_count')}/{observation.get('max_steps')}
+- Threat: {observation.get('known_threat')}
+- Alliances: {observation.get('alliances')}
+- Resources: {observation.get('resources')}
+- Reputation: {observation.get('reputation')}
+- Deployed sector: {observation.get('deployed_sector')}
+- Operation ready: {observation.get('operation_ready')}
+- Operation executed: {observation.get('operation_executed')}
 
-Decide the single best next action to maximize progress. If priority, queue, and reply are set, resolve the ticket."""
+Choose the single best next action."""
 
     for model in model_candidates:
         try:
@@ -237,12 +242,8 @@ def run_task(
     llm_client: OpenAI,
     task_id: str,
     difficulty: Optional[str],
-    max_steps: int = 8,
+    max_steps: int = 12,
 ) -> tuple[bool, int, float, List[float]]:
-    """
-    Run a single task episode.
-    Returns (success, step_count, final_score, rewards_list).
-    """
     model_candidates = models_for_task(task_id, difficulty)
     log_start(task_id, model_candidates[0])
 
@@ -270,9 +271,8 @@ def run_task(
             reward = float(payload["reward"]["score"])
             done = bool(payload["done"])
 
-            # Check for any action error from the reward reason
             reason = payload.get("reward", {}).get("reason", "")
-            if "penalty" in reason.lower() or "missing" in reason.lower() or "empty" in reason.lower():
+            if "penalty" in reason.lower() or "requires" in reason.lower() or "cannot" in reason.lower():
                 error = reason
             if used_model == "fallback-heuristic":
                 error = f"{error};model_fallback" if error else "model_fallback"
@@ -281,9 +281,8 @@ def run_task(
             log_step(idx, action, reward, done, error)
 
             if done:
-                # Get the final task score from grader
                 final_score = float(payload.get("info", {}).get("task_score", 0.0))
-                success = final_score >= 0.5  # Consider success if score >= 0.5
+                success = bool(payload.get("info", {}).get("success", False))
                 break
 
     except Exception as exc:

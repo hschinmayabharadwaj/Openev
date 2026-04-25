@@ -4,10 +4,10 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 
 from models import Action, ResetRequest, StepResponse
-from server.environment import SupportTriageEnvironment
+from server.environment import NeonSyndicateEnvironment
 
-app = FastAPI(title="SupportOps OpenEnv", version="1.0.0")
-env = SupportTriageEnvironment()
+app = FastAPI(title="Neon Syndicate OpenEnv", version="1.0.0")
+env = NeonSyndicateEnvironment()
 
 
 @app.get("/health")
