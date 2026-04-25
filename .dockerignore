@@ -44,9 +44,13 @@ htmlcov/
 .env.local
 .env.*.local
 
-# Documentation
-docs/
+# Documentation source files (*.md) but keep the docs/ folder which
+# now contains user-facing pages (judge, lab, play, heist, walkthrough)
+# served at runtime. We still ignore *.md at the repo root, but allow
+# docs/walkthrough.md so /walkthrough.md serves the source.
 *.md
+!README.md
+!docs/walkthrough.md
 
 # CI/CD
 .github
