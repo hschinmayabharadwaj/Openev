@@ -35,7 +35,11 @@ class NeonSyndicateEnvironment(OpenEnvEnvironment):
 
 	def __init__(self) -> None:
 		super().__init__()
-		self.max_steps = 12
+		# 24 steps so 3-faction "hard" missions are actually solvable end-to-end
+		# (6 negotiates + interleaved trades + deploy + run + extract). Easy
+		# missions terminate as soon as ``state.resolved`` flips, so the longer
+		# clock only helps the difficult ones.
+		self.max_steps = 24
 		self._tasks = self._build_tasks()
 		self._task_order = [
 			"task_easy_docklands_relay",

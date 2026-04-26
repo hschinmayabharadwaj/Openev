@@ -65,5 +65,14 @@ notebooks/artifacts/trl-neon-model/vocab.json
 notebooks/artifacts/trl-neon-model/merges.txt
 notebooks/artifacts/.DS_Store
 
+# Training run outputs -- produced by executing the Colab notebook,
+# never committed. Each run regenerates them.
+notebooks/artifacts/trl-neon-model/training_summary.jsonl
+notebooks/artifacts/trl-neon-model/training_steps.jsonl
+notebooks/artifacts/trl-neon-model/training_trajectory.jsonl
+artifacts/trl-neon-model/training_summary.jsonl
+artifacts/trl-neon-model/training_steps.jsonl
+artifacts/trl-neon-model/training_trajectory.jsonl
+
 # Hackathon briefing slides (not project content)
 *.pdf

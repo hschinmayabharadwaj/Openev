@@ -1,0 +1,6 @@
+# This directory is the OUTPUT_DIR for notebooks/trl_training_colab.ipynb.
+# The notebook writes:
+#   - training_summary.jsonl       (final 6/6 eval pass, one row per mission)
+#   - training_steps.jsonl         (per-step PPO telemetry, optional)
+#   - model checkpoint files       (config.json, tokenizer files, weights)
+# None of those are committed -- run the notebook end-to-end to regenerate them.

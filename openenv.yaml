@@ -26,7 +26,7 @@ observation_model: Observation
 action_model: Action
 reward_model: Reward
 episode:
-  max_steps: 12
+  max_steps: 24
 tasks:
   - task_id: task_easy_docklands_relay
     difficulty: easy

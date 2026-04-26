@@ -25,6 +25,15 @@ training = [
 	"transformers>=4.44.0",
 	"trl>=0.11.0"
 ]
+qlora = [
+	"accelerate>=0.34.0",
+	"bitsandbytes>=0.43.0",
+	"matplotlib>=3.8.0",
+	"peft>=0.11.0",
+	"torch>=2.2.0",
+	"transformers>=4.44.0",
+	"trl>=0.11.0"
+]
 
 [tool.ruff]
 line-length = 100

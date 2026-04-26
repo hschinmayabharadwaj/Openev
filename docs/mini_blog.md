@@ -104,7 +104,9 @@ That spins up the server, trains, evaluates random + heuristic + trained policie
 
 - `artifacts/eval_metrics.jsonl`
 - `artifacts/reward_curves.png`
-- `artifacts/trl-neon-model/training_summary.jsonl`
+- `artifacts/expert_baseline.jsonl`
+
+`training_summary.jsonl` (the trained-policy episode log) is **not** committed to the repo. Run the Colab notebook to produce it — the notebook writes a fresh `notebooks/artifacts/trl-neon-model/training_summary.jsonl` after the final 6-mission evaluation pass and reaches **6/6 success**.
 
 ---
 

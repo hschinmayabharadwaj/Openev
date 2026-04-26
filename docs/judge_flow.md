@@ -108,7 +108,9 @@ That spins up the server, trains, evaluates, and writes:
 
 - `artifacts/eval_metrics.jsonl`
 - `artifacts/reward_curves.png`
-- `artifacts/trl-neon-model/training_summary.jsonl`
+- `artifacts/expert_baseline.jsonl`
+
+`training_summary.jsonl` (the trained-policy episode log) is produced when you execute the Colab notebook — it is gitignored and regenerated on every run.
 
 ---
 

@@ -1,0 +1,26 @@
+{
+  "random": {
+    "episodes": 18.0,
+    "avg_total_reward": 0.11694314173480841,
+    "avg_task_score": 0.1535056359535526,
+    "success_rate": 0.0,
+    "successes": 0.0,
+    "avg_steps": 8.88888888888889
+  },
+  "heuristic": {
+    "episodes": 18.0,
+    "avg_total_reward": 0.41458654482091983,
+    "avg_task_score": 0.5380743301837052,
+    "success_rate": 0.0,
+    "successes": 0.0,
+    "avg_steps": 11.0
+  },
+  "expert": {
+    "episodes": 18.0,
+    "avg_total_reward": 0.9611467236467236,
+    "avg_task_score": 1.0,
+    "success_rate": 1.0,
+    "successes": 18.0,
+    "avg_steps": 14.833333333333334
+  }
+}

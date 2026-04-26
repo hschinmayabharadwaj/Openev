@@ -11,6 +11,7 @@ __pycache__
 .Python
 env/
 venv/
+.venv/
 ENV/
 build/
 develop-eggs/
@@ -30,6 +31,7 @@ wheels/
 .pytest_cache/
 .coverage
 htmlcov/
+uv.lock
 
 # IDE
 .vscode
@@ -38,6 +40,7 @@ htmlcov/
 *.swo
 *~
 .DS_Store
+**/.DS_Store
 
 # Project specific
 .env
@@ -59,3 +62,15 @@ htmlcov/
 # Node (if any)
 node_modules/
 npm-debug.log
+
+# Hackathon briefing slides + any other PDFs are not part of the env
+*.pdf
+
+# Multi-GB checkpoints. The runtime falls back to the heuristic/expert
+# policy when no checkpoint is present, so we don't ship weights to the
+# Space (judges can re-train via the Colab notebook).
+artifacts/trl-neon-model/model.safetensors
+notebooks/artifacts/trl-neon-model/model.safetensors
+notebooks/artifacts/trl-neon-model/tokenizer.json
+notebooks/artifacts/trl-neon-model/vocab.json
+notebooks/artifacts/trl-neon-model/merges.txt

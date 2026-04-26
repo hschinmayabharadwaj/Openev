@@ -1295,7 +1295,7 @@ function renderCurve() {
   const pad = curvePadding();
   const eps = CURVE_STATE.episodes;
   if (!eps.length) {
-    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" fill="#7a8298" text-anchor="middle" font-family="ui-monospace" font-size="13">no training_summary.jsonl found yet — running locally? Run scripts/run_full_pipeline.sh.</text>`;
+    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" fill="#7a8298" text-anchor="middle" font-family="ui-monospace" font-size="13">no training_summary.jsonl yet — run notebooks/trl_training_colab.ipynb end-to-end to produce it.</text>`;
     return;
   }
   const series = CURVE_STATE.series;
