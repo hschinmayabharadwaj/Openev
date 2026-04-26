@@ -47,6 +47,34 @@ def model_dtype_for(device: torch.device, use_half: bool) -> torch.dtype:
     return torch.float16
 
 
+def resolve_training_device(preference: str) -> torch.device:
+    """Pick device for the model. Default 'auto' prefers CUDA, then CPU (not MPS: TRL+PPO is flaky on MPS)."""
+    p = preference.lower()
+    if p == "cpu":
+        return torch.device("cpu")
+    if p == "cuda":
+        if not torch.cuda.is_available():
+            raise SystemExit("CUDA requested but torch.cuda.is_available() is False")
+        return torch.device("cuda")
+    if p == "mps":
+        if not torch.backends.mps.is_available():
+            raise SystemExit("MPS requested but not available")
+        return torch.device("mps")
+    if p != "auto":
+        raise SystemExit(f"Unknown --device: {preference}")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+
+def model_dtype_for(device: torch.device, use_half: bool) -> torch.dtype:
+    if not use_half or device.type != "cuda":
+        return torch.float32
+    if torch.cuda.is_bf16_supported():
+        return torch.bfloat16
+    return torch.float16
+
+
 ALLOWED_ACTION_TYPES = {
     "scout_sector",
     "negotiate_pact",
