@@ -1,6 +1,0 @@
-{"episode_id": 0, "task_id": "task_easy_docklands_relay", "total_reward": 0.27892857142857147, "final_task_score": 0.0, "success": false, "steps": 8}
-{"episode_id": 1, "task_id": "task_easy_data_spire_broker", "total_reward": 0.07708333333333336, "final_task_score": 0.0, "success": false, "steps": 8}
-{"episode_id": 2, "task_id": "task_medium_undergrid_blackout", "total_reward": 0.3911661255411255, "final_task_score": 0.5404761904761904, "success": false, "steps": 8}
-{"episode_id": 3, "task_id": "task_medium_citadel_convoy", "total_reward": 0.09000000000000002, "final_task_score": 0.0, "success": false, "steps": 8}
-{"episode_id": 4, "task_id": "task_hard_orchid_coup", "total_reward": 0.1063553113553114, "final_task_score": 0.0, "success": false, "steps": 8}
-{"episode_id": 5, "task_id": "task_hard_citywide_failsafe", "total_reward": 0.10740530303030303, "final_task_score": 0.0, "success": false, "steps": 8}
