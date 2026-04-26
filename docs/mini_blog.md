@@ -12,11 +12,11 @@ You have **twenty-four turns** to negotiate, scout, trade, deploy, execute, and 
 
 This is `Neon Syndicate` — a cinematic OpenEnv environment for training LLMs on coalition politics, bargaining, and long-horizon execution under partial observability. Most LLM benchmarks reward **one good answer**. This one rewards **a sequence**.
 
-- Live env: <https://hsbharadwaj-ev.hf.space>
-- Space: <https://huggingface.co/spaces/hsbharadwaj/ev>
-- Code: <https://github.com/hschinmayabharadwaj/Openev>
-- Colab notebook (TRL PPO): [open in Colab](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb)
-- Judge showcase: <https://hsbharadwaj-ev.hf.space/judge>
+- Live env — [hsbharadwaj-ev.hf.space](https://hsbharadwaj-ev.hf.space)
+- Hugging Face Space — [huggingface.co/spaces/hsbharadwaj/ev](https://huggingface.co/spaces/hsbharadwaj/ev)
+- GitHub repo — [github.com/hschinmayabharadwaj/Openev](https://github.com/hschinmayabharadwaj/Openev)
+- Colab notebook (TRL PPO) — [open in Colab](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb)
+- Judge showcase — [hsbharadwaj-ev.hf.space/judge](https://hsbharadwaj-ev.hf.space/judge)
 
 ---
 
@@ -160,11 +160,11 @@ That is the exact shape of behavior we need for next-gen agentic workflows — w
 
 ## Go Deeper
 
-- **Live judge showcase** — every required link, the policy ladder, and a runnable agent demo on one screen: <https://hsbharadwaj-ev.hf.space/judge>
-- **Reward Forensics Lab** — RLVE difficulty knob, 5-gate verifier timeline, reward-hacking sandbox: <https://hsbharadwaj-ev.hf.space/lab>
+- **Live judge showcase** — every required link, the policy ladder, and a runnable agent demo on one screen: [hsbharadwaj-ev.hf.space/judge](https://hsbharadwaj-ev.hf.space/judge)
+- **Reward Forensics Lab** — RLVE difficulty knob, 5-gate verifier timeline, reward-hacking sandbox: [hsbharadwaj-ev.hf.space/lab](https://hsbharadwaj-ev.hf.space/lab)
 - **Master walkthrough** — every concept from the briefing mapped to a file in this repo: [`docs/walkthrough.md`](https://huggingface.co/spaces/hsbharadwaj/ev/blob/main/docs/walkthrough.md)
-- **Playable cyberpunk heist** — walk Vex around an isometric city, take orders from the trained LLM in your ear: <https://hsbharadwaj-ev.hf.space/heist>
-- **Watch-mode race** — all four policies run the same task lock-step over SSE: <https://hsbharadwaj-ev.hf.space/play>
+- **Playable cyberpunk heist** — walk Vex around an isometric city, take orders from the trained LLM in your ear: [hsbharadwaj-ev.hf.space/heist](https://hsbharadwaj-ev.hf.space/heist)
+- **Watch-mode race** — all four policies run the same task lock-step over SSE: [hsbharadwaj-ev.hf.space/play](https://hsbharadwaj-ev.hf.space/play)
 
 ---
 
