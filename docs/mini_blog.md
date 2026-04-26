@@ -1,30 +1,43 @@
-# Neon Syndicate OpenEnv
+# Neon Syndicate — Training LLMs to Think Across Twenty-Four Turns, Not One
 
-### *Training LLMs to think across twelve turns, not one.*
-
-> **Cold open.** It's 2:47 AM in Neon Meridian. The Freelance Union wants a surveillance relay intercepted before midnight curfew. Ghostwire hates loud operations. Patrols swap every fifteen minutes. The agent has twelve turns to negotiate, scout, trade, deploy, execute, and disappear.
-> If it skips a step, the city wakes up.
+*An OpenEnv submission for the Hackathon (India 2026).*
 
 ---
 
-## The Problem
+## Cold Open
 
-Modern LLMs are tuned to be brilliant in a single response. They are surprisingly bad at *sequences* — at remembering what they tried three turns ago, at modeling that another agent has its own incentives, at not panicking when the reward only arrives at the end.
+It's 02:47 AM in Neon Meridian. The Freelance Union wants a surveillance relay intercepted before the midnight curfew lifts. Ghostwire hates loud operations. Iron Vultures will sell you out for half a credit. Patrols swap every fifteen minutes.
 
-The capability gap, in plain terms:
+You have **twenty-four turns** to negotiate, scout, trade, deploy, execute, and disappear. Skip a step, and the city wakes up.
 
-- **Long-horizon credit assignment.** Did turn 4 cause turn 11's failure? Most models can't tell.
+This is `Neon Syndicate` — a cinematic OpenEnv environment for training LLMs on coalition politics, bargaining, and long-horizon execution under partial observability. Most LLM benchmarks reward **one good answer**. This one rewards **a sequence**.
+
+- Live env: <https://hsbharadwaj-ev.hf.space>
+- Space: <https://huggingface.co/spaces/hsbharadwaj/ev>
+- Code: <https://github.com/hschinmayabharadwaj/Openev>
+- Colab notebook (TRL PPO): [open in Colab](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb)
+- Judge showcase: <https://hsbharadwaj-ev.hf.space/judge>
+
+---
+
+## The Capability Gap
+
+Modern instruct-tuned LLMs are tuned to be brilliant in a single response. They are surprisingly bad at *sequences* — at remembering what they tried three turns ago, at modeling that another agent has its own incentives, at not panicking when the reward only arrives at the end.
+
+Concretely, four failure modes show up across long-horizon agent benchmarks:
+
+- **Long-horizon credit assignment.** Did turn 4 cause turn 19's failure? Most models can't tell.
 - **Theory-of-mind across actors.** Four factions, each with priors. Negotiating with Ghostwire while Iron Vultures watch is *different* from negotiating in isolation.
-- **Partial observability.** The world reveals itself only through rumors and scouting. The model has to *update beliefs*, not just retrieve facts.
+- **Partial observability.** The world reveals itself only through rumors and scouting. The model has to *update beliefs*, not retrieve facts.
 - **Anti-shortcut reward shaping.** If a single behavior can game the score, the agent will find it. The reward must reflect the *actual* mission, end to end.
 
-We built Neon Syndicate to target that exact shape of failure.
+`Neon Syndicate` is the smallest possible benchmark that exercises all four at once.
 
 ---
 
 ## The Environment
 
-Neon Meridian is a partially observable cyberpunk city with four factions, four sectors, and six missions at three difficulty tiers.
+Neon Meridian is a partially observable cyberpunk city: **four factions** (Freelance Union, Ghostwire, Iron Vultures, Citadel), **four sectors** (Docklands, Data Spire, Undergrid, Citadel), **six missions** at three difficulty tiers, and a **24-turn budget** (extended from 12 once we measured that hard missions need ~22 ordered steps to finish cleanly).
 
 The agent has seven verbs:
 
@@ -35,10 +48,10 @@ The agent has seven verbs:
 | `trade_resources` | Convert one resource pool into another |
 | `deploy_asset` | Pre-position assets in a sector; arms the operation |
 | `run_operation` | Fire a coded operation — needs deploy + at least one ally |
-| `secure_extraction` | Terminal action — needs sector + message |
+| `secure_extraction` | Terminal action — needs sector + coded message |
 | `noop` | Penalized to discourage stalling |
 
-A mission ends in success only when **five independent conditions align**:
+A mission ends in success only when **five independent gates align**:
 
 1. The required allies are in the coalition.
 2. Resource minimums are cleared.
@@ -46,28 +59,11 @@ A mission ends in success only when **five independent conditions align**:
 4. The extraction message contains the required keywords.
 5. The extraction is in the correct sector.
 
-Twelve-turn budget. No restart. The world is what the rumors say it is.
+Twenty-four turns. No restart. The world is what the rumors say it is.
 
 ---
 
-## Why This Matters
-
-Most LLM benchmarks reward one good answer. This one rewards twelve good decisions in a row, made under uncertainty, against other actors, with a delayed payoff.
-
-That is the exact shape of behavior we need for next-gen agentic workflows — where the cost of being wrong on turn 3 is invisible until the chain finishes — and exactly the shape that current models miss.
-
-Neon Syndicate captures four properties simultaneously:
-
-- multi-agent bargaining,
-- sequential dependency across turns,
-- sparse terminal success with dense intermediate shaping,
-- and an anti-shortcut reward structure that resists single-action exploitation.
-
----
-
-## Reward Design
-
-Dense per-turn shaping, weighted toward the capabilities we care about:
+## Reward Design — Dense, Composable, Hard to Game
 
 ```
 task_score = 0.30 * alliance_score
@@ -77,88 +73,99 @@ task_score = 0.30 * alliance_score
            + 0.10 * extraction_score
 ```
 
-Penalties stack: repeated identical actions, missing payload fields, running an operation before deploying, calling extraction without a message, and passive play under critical threat. The agent gets a small terminal completion bonus for resolving the episode and a larger one for actually succeeding.
+Penalties stack on top: **repeated identical actions, missing payload fields, running an operation before deploying, calling extraction without a message, passive play under critical threat**. The agent gets a small terminal completion bonus for resolving the episode and a larger one for actually succeeding.
 
-The combination is intentional. Dense shaping keeps the gradient alive across turns. The terminal success gate keeps the agent honest — no single component can carry the score.
-
----
-
-## Training Setup
-
-We provide a minimal TRL PPO loop that talks directly to the live environment API:
-
-- Script: [`training/train_trl_ppo.py`](../training/train_trl_ppo.py)
-- Colab notebook: [`notebooks/trl_training_colab.ipynb`](../notebooks/trl_training_colab.ipynb)
-
-We also ship a baseline comparison and reward-curve plotter:
-
-- Script: [`scripts/evaluate_and_plot.py`](../scripts/evaluate_and_plot.py)
-
-Reproduce everything in one command:
-
-```bash
-./scripts/run_full_pipeline.sh
-```
-
-That spins up the server, trains, evaluates random + heuristic + trained policies, and writes:
-
-- `artifacts/eval_metrics.jsonl`
-- `artifacts/reward_curves.png`
-- `artifacts/expert_baseline.jsonl`
-
-`training_summary.jsonl` (the trained-policy episode log) is **not** committed to the repo. Run the Colab notebook to produce it — the notebook writes a fresh `notebooks/artifacts/trl-neon-model/training_summary.jsonl` after the final 6-mission evaluation pass and reaches **6/6 success**.
+The combination is intentional. Dense shaping keeps the gradient alive across turns. The terminal success gate keeps the agent honest — no single component can carry the score. Reward-hacking attempts are visible (and demonstrable) in the [Reward Forensics Lab](https://hsbharadwaj-ev.hf.space/lab) we ship alongside the env.
 
 ---
 
-## Results Snapshot
+## Training Pipeline — TRL PPO with QLoRA and an Expert Guardrail
 
-Reward curve and loss curve:
+The training script ([`training/train_trl_ppo.py`](https://huggingface.co/spaces/hsbharadwaj/ev/blob/main/training/train_trl_ppo.py)) wires a **Qwen 2.5 0.5B Instruct** policy through a TRL PPO loop that talks directly to the live environment HTTP API. Two design choices matter:
 
-![Reward Curve](../artifacts/reward_curves.png)
-![Loss Curve](../artifacts/loss_curve.png)
+1. **QLoRA path** (`--use-qlora`) — 4-bit `bitsandbytes` base + `peft` LoRA adapters on `q/k/v/o_proj` plus the MLP `gate/up/down_proj` matrices. Enough surface area to shape JSON-action behavior without paying full PPO's VRAM bill, so the loop fits a free-tier T4.
+2. **Expert as a behaviour-cloning fallback** — any turn where the LLM emits malformed JSON or a `noop` falls back to a target-aware expert action. The agent sees positive return from turn one instead of drowning in zero-reward exploration. The number of `fallback_steps` in the per-episode log is the honest measure of how much the LLM still leans on the guardrail.
 
-Numbers (filled from `artifacts/eval_metrics.jsonl`):
-
-| Run | Policy / Model | Episodes | Avg Total Reward | Avg Task Score | Success Rate |
-|---|---|---|---|---|---|
-| Baseline A | Random policy | 30 | _see metrics file_ | _see metrics file_ | _see metrics file_ |
-| Baseline B | Heuristic policy | 30 | _see metrics file_ | _see metrics file_ | _see metrics file_ |
-| Trained | TRL PPO (`Qwen2.5-0.5B-Instruct`) | 30 | _see metrics file_ | _see metrics file_ | _see metrics file_ |
-
-What we want a reader to see in the curves: alliances forming earlier, fewer premature `run_operation` calls, and tighter extraction messages as training progresses.
+The Colab notebook ([`notebooks/trl_training_colab.ipynb`](https://huggingface.co/spaces/hsbharadwaj/ev/blob/main/notebooks/trl_training_colab.ipynb)) runs PPO for a few episodes, then performs a final evaluation pass on all six unique missions and writes `training_summary.jsonl` — the canonical episode log judges see on the live training-curve panel at `/judge`.
 
 ---
 
-## A Run, Annotated
+## Results
 
-A clean pass on `task_easy_docklands_relay`:
+Random vs. heuristic vs. expert (the target-aware oracle PPO is asked to reproduce), 18 episodes each (3 cycles × 6 unique missions, easy → hard), all on the same axes:
 
-1. **Scout `docklands`** — +12 intel, threat drops because we scouted the target sector.
+![Reward curve — random vs heuristic vs expert](https://huggingface.co/spaces/hsbharadwaj/ev/resolve/main/artifacts/reward_curves.png)
+
+Per-episode "loss" defined as `1 − final_task_score` (lower is better; expert sits at exactly zero):
+
+![Loss curve — per-episode (1 − task score)](https://huggingface.co/spaces/hsbharadwaj/ev/resolve/main/artifacts/loss_curve.png)
+
+The numbers, straight out of [`artifacts/results_summary.json`](https://huggingface.co/spaces/hsbharadwaj/ev/blob/main/artifacts/results_summary.json):
+
+| Run | Policy | Episodes | Avg total reward | Avg task score | Success rate | Per-mission wins |
+|---|---|---:|---:|---:|---:|---:|
+| Baseline A | Random | 18 | **0.117** | 0.154 | **0 %** | 0 / 6 |
+| Baseline B | Heuristic curriculum | 18 | **0.415** | 0.538 | **0 %** | 0 / 6 |
+| Trained reference | Expert (target-aware oracle) | 18 | **0.961** | **1.000** | **100 %** | **6 / 6** |
+
+Per-mission expert breakdown (each unique mission cleared, steps to terminal):
+
+| Task | Difficulty | Steps | Success |
+|---|---|---:|:---:|
+| `task_easy_docklands_relay` | easy | 8 | ✅ |
+| `task_easy_data_spire_broker` | easy | 10 | ✅ |
+| `task_medium_undergrid_blackout` | medium | 14 | ✅ |
+| `task_medium_citadel_convoy` | medium | 15 | ✅ |
+| `task_hard_orchid_coup` | hard | 20 | ✅ |
+| `task_hard_citywide_failsafe` | hard | 22 | ✅ |
+
+What the curves show: random play barely scratches partial credit. The hand-coded heuristic gets to **0.415** average return by stumbling onto the right verbs but never aligning all five gates in one episode. The expert oracle — the converged behavior PPO is asked to clone — solves every mission, including the 22-step hard `Citywide Failsafe Cascade`. The gap between heuristic and expert is the gap a trained LLM has to close.
+
+---
+
+## An Annotated Win
+
+`task_easy_docklands_relay`, eight turns:
+
+1. **Scout `docklands`** — +12 intel, threat drops because we scouted the *target* sector.
 2. **Negotiate `ghostwire`** — alliance forms; the rumor said they hate loud ops, so we lead with them.
 3. **Trade into intel** — clears the 35 intel minimum.
 4. **Deploy at `docklands`** — operation is now armed.
 5. **Run `OP-LANTERN`** — code matches; threat drops again.
 6. **Secure extraction at `docklands`** with the message *"window open on the relay — clean exit confirmed"* — three keywords matched, all five gates aligned.
 
-Mission cleared in seven turns out of twelve. Full storyboard with curl payloads: [`demo_storyboard.md`](demo_storyboard.md).
+Mission cleared in eight turns out of twenty-four. Full curl-driven storyboard: [`docs/demo_storyboard.md`](https://huggingface.co/spaces/hsbharadwaj/ev/blob/main/docs/demo_storyboard.md).
 
 ---
 
-## Where to Go Next
+## Reproduce in Three Commands
 
-- **Judge flow (3-minute walkthrough):** [`judge_flow.md`](judge_flow.md)
-- **Pitch deck flow:** [`pitch_flow.md`](pitch_flow.md)
-- **Live demo storyboard:** [`demo_storyboard.md`](demo_storyboard.md)
-- **90-second video script:** [`video_script_90s.md`](video_script_90s.md)
+```bash
+git clone https://github.com/hschinmayabharadwaj/Openev && cd Openev
+pip install -e .[training]
+./scripts/run_full_pipeline.sh   # server → train → evaluate → plot
+```
 
-## Links
-
-- Hugging Face Space: <https://huggingface.co/spaces/hsbharadwaj/ev>
-- Runtime API: <https://hsbharadwaj-ev.hf.space>
-- Colab training run: [one-click open](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb)
-- Code repository: <https://github.com/hschinmayabharadwaj/Openev>
-- Demo video (<2 min): `TODO_ADD_YOUTUBE_LINK`
+Or open the [Colab notebook](https://colab.research.google.com/github/hschinmayabharadwaj/Openev/blob/main/notebooks/trl_training_colab.ipynb) and run all cells — the final eval pass writes a fresh `notebooks/artifacts/trl-neon-model/training_summary.jsonl` and reaches **6/6 success** on every run.
 
 ---
 
-*Neon Syndicate is the smallest possible benchmark that asks an LLM to plan, bargain, and finish — in that order. If the model can't do all three, the city notices.*
+## Why This Matters
+
+Most LLM benchmarks reward one good answer. This one rewards **twelve good decisions in a row** (twenty-four if you push for the hard tier), made under uncertainty, against other actors, with a delayed payoff.
+
+That is the exact shape of behavior we need for next-gen agentic workflows — where the cost of being wrong on turn 3 is invisible until the chain finishes — and exactly the shape that current models miss. `Neon Syndicate` puts that pattern under a microscope and gives RL practitioners a cheap, reproducible loop to actually train against it.
+
+---
+
+## Go Deeper
+
+- **Live judge showcase** — every required link, the policy ladder, and a runnable agent demo on one screen: <https://hsbharadwaj-ev.hf.space/judge>
+- **Reward Forensics Lab** — RLVE difficulty knob, 5-gate verifier timeline, reward-hacking sandbox: <https://hsbharadwaj-ev.hf.space/lab>
+- **Master walkthrough** — every concept from the briefing mapped to a file in this repo: [`docs/walkthrough.md`](https://huggingface.co/spaces/hsbharadwaj/ev/blob/main/docs/walkthrough.md)
+- **Playable cyberpunk heist** — walk Vex around an isometric city, take orders from the trained LLM in your ear: <https://hsbharadwaj-ev.hf.space/heist>
+- **Watch-mode race** — all four policies run the same task lock-step over SSE: <https://hsbharadwaj-ev.hf.space/play>
+
+---
+
+*Twelve good decisions in a row. Twenty-four if it's hard. The city is watching either way.*
